@@ -16,13 +16,19 @@ To complete this assignment, you need to
 
 We implemented Algorithms for Recovery and Isolation Exploiting Semantics, ARIES for short, in our recovery module. However, our implementation only focuses on correctness. The recovery process and checkpointing might be slow.
 
-For example, VanillaCore flushes all buffers at each time of checkpointing, which causes that the transactions modifying those buffers are blocked until flushing is finished. Although it can speed up the recovery process, it may make a big impact when processing normal transactions. To solve this problem, you can maintain a **Dirty Page Table** to keep tracking dirty pages, and flush those pages a little at a time by a background thread. Then, instead of flushing all buffers, checkpoint process only flushes the **Dirty Page Table** to a stable storage. The recovery process can only REDO the pages that are marked as DIRTY in the **Dirty Page Table** which is recorded in the most recent checkpoint log.
+For example, VanillaCore flushes all buffers at each time of checkpointing, which causes that the transactions modifying those buffers are blocked until flushing is finished. Although it can speed up the recovery process, it may make a big impact when processing normal transactions. To solve this problem, you can maintain a **Dirty Page Table** to keep tracking dirty pages, and flush those pages a little at a time by a background thread. Then, instead of flushing all buffers, checkpoint process only flushes the **Dirty Page Table** to a stable storage. The recovery process will first find the minimum LSN in the **Dirty Page Table** and start REDO phase from this LSN. Also during the REDO procedure, it can only REDO the pages that are marked as DIRTY in the **Dirty Page Table** which is recorded in the most recent checkpoint log.
 
 Moreover, you can also add a **Transaction Table** containing the numbers of active transactions and the LSNs of their last appended logs to the checkpoint log. In order to undo the actions made by unfinished transactions, this table can be used to find the last log record appended by those transactions without scanning whole log files.
 
 A dirty page table and a transaction table might be very large. Saving these tables takes a lot of time and we do not want to block the transactions to save them when checkpointing. Therefore, we can do **fuzzy checkpoint** here. Fuzzy checkpoint appends a start checkpoint log when it starts, and appends a end checkpiont log when it finishes saving the tables. This makes whole saving process could be done in the background without blocking all active transacions.
 
 Note that dirty page tables and transaction tables are designed for eliminating unncessary REDO and scanning. Without them, ARIES could still recovery a database to a consistent state.
+
+## Reference
+
+- [Overview of ARIES](http://netdb-db.appspot.com/slides/tas/XI_Overview_of_ARIES.pdf)
+- [Optimization of ARIES](http://netdb-db.appspot.com/slides/tas/XII_Optimization_of_ARIES.pdf)
+- [ARIES paper](https://www.cs.berkeley.edu/~brewer/cs262/Aries.pdf)
 
 ## Experiments
 
