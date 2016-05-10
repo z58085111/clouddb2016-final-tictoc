@@ -112,6 +112,10 @@ class SetValueRecord implements LogRecord {
 	@Override
 	public void undo(Transaction tx) {
 		Buffer buff = tx.bufferMgr().pin(blk);
+		
+		LogSeqNum lsn = tx.recoveryMgr().logSetValClr(this.txNum, buff, offset, val, this.lsn);
+		VanillaDb.logMgr().flush(lsn);
+		
 		buff.setVal(offset, val, tx.getTransactionNumber(), null);
 		tx.bufferMgr().unpin(buff);
 		// Note that UndoNextLSN should be set to this log record's lsn in order
@@ -120,8 +124,7 @@ class SetValueRecord implements LogRecord {
 		// Since Clr is Undo's redo log , here we should log
 		// old val setVal log to make this undo procedure be redo during
 		// repeat history
-		LogSeqNum lsn = tx.recoveryMgr().logSetValClr(this.txNum, buff, offset, val, this.lsn);
-		VanillaDb.logMgr().flush(lsn);
+
 	}
 
 	/**
