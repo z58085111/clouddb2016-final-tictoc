@@ -64,6 +64,7 @@ public class VanillaDb {
 	 * Initialization Flag
 	 */
 	private static boolean inited;
+	private static long systemStartTime;
 
 	/**
 	 * Initializes the system. This method is called during system startup.
@@ -147,6 +148,7 @@ public class VanillaDb {
 
 		// finish initialization
 		inited = true;
+		systemStartTime = System.currentTimeMillis();
 	}
 
 	/**
@@ -158,6 +160,10 @@ public class VanillaDb {
 		return inited;
 	}
 
+	public static long getSystemStartTime() {
+		return systemStartTime;
+	}
+	
 	/*
 	 * The following initialization methods are useful for testing the
 	 * lower-level components of the system without having to initialize
