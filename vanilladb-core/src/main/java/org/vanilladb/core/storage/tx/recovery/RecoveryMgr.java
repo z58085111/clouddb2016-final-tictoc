@@ -38,10 +38,14 @@ public class RecoveryMgr implements TransactionLifecycleListener {
 	 * startup, before user transactions begin.
 	 */
 	public static void recover(Transaction tx) {
+		long start = System.currentTimeMillis();
+		long end = 0;
 		tx.recoveryMgr().doRecover(tx);
 		tx.bufferMgr().flushAll();
 		LogSeqNum lsn = new CheckpointRecord().writeToLog();
 		VanillaDb.logMgr().flush(lsn);
+		end = System.currentTimeMillis();
+		System.out.println(start+" - "+end+"\t"+(end-start));
 	}
 
 	public static void partialRecover(Transaction tx, int stepsInUndo) {
