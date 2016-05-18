@@ -46,8 +46,8 @@ public class MicrobenchmarkProc implements StoredProcedure {
 	}
 
 	protected void executeSql() {
-		if(System.currentTimeMillis() - VanillaDb.getSystemStartTime() > 70000)
-			System.exit(0);
+//		if(System.currentTimeMillis() - VanillaDb.getSystemStartTime() > 70000)
+//			System.exit(0);
 		for (int i = 0; i < paramHelper.getReadCount(); i++) {
 			String name = "";
 
