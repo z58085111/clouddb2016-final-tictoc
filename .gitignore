@@ -1,4 +1,6 @@
 target/
+benchmark/target/
+vanilladb-core/target/
 .metadata/
 repo/
 RemoteSystemsTempFiles

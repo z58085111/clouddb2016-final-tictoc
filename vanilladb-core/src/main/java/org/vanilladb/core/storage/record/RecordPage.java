@@ -28,12 +28,14 @@ public class RecordPage implements Record {
 	public static final int MIN_REC_SIZE = Page.maxSize(INTEGER)
 			+ Page.maxSize(BIGINT);
 	public static final int FLAG_SIZE = Page.maxSize(INTEGER);
+	public static final int TS_WORD_SIZE = Page.maxSize(BIGINT);
 	public static final int MIN_SLOT_SIZE = FLAG_SIZE + MIN_REC_SIZE;
 
 	// Optimization: Materialize the constant value of flag
 	private static final IntegerConstant INUSE_CONST = new IntegerConstant(
 			INUSE), EMPTY_CONST = new IntegerConstant(EMPTY);
-
+	private static final BigIntConstant TS_WORD_CONST = new BigIntConstant(0);
+	
 	private Transaction tx;
 	private BlockId blk;
 	private TableInfo ti;
@@ -137,7 +139,7 @@ public class RecordPage implements Record {
 			pos += Page.maxSize(sch.type(fldname));
 		}
 		pos = pos < MIN_REC_SIZE ? MIN_REC_SIZE : pos;
-		slotSize = pos + FLAG_SIZE;
+		slotSize = pos + FLAG_SIZE + TS_WORD_SIZE;
 	}
 
 	/**
@@ -211,6 +213,7 @@ public class RecordPage implements Record {
 			return false;
 		
 		setVal(currentPos(), INUSE_CONST);
+		setVal(currentPos(), TS_WORD_CONST);
 		return true;
 	}
 
@@ -225,6 +228,7 @@ public class RecordPage implements Record {
 		if (found) {
 			Constant flag = INUSE_CONST;
 			setVal(currentPos(), flag);
+			setVal(currentPos(), TS_WORD_CONST);
 		}
 		return found;
 	}
@@ -244,6 +248,7 @@ public class RecordPage implements Record {
 		setNextDeletedSlotId(new RecordId(new BlockId("", 0), 0));
 		Constant flag = INUSE_CONST;
 		setVal(currentPos(), flag);
+		setVal(currentPos(), TS_WORD_CONST);
 		return nds;
 	}
 
