@@ -1,5 +1,6 @@
 package netdb.software.benchmark.server;
 
+import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -10,7 +11,7 @@ public class VanillaDbSpStartUp implements SutStartUp {
 	private static Logger logger = Logger.getLogger(VanillaDbSpStartUp.class
 			.getName());
 
-	public void startup(String[] args) {
+	public void startup(String[] args) throws IOException {
 		if (logger.isLoggable(Level.INFO))
 			logger.info("initing...");
 

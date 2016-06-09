@@ -5,6 +5,7 @@ import static org.vanilladb.core.sql.Type.VARCHAR;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.vanilladb.core.sql.IntegerConstant;
 import org.vanilladb.core.sql.Schema;
@@ -175,5 +176,23 @@ public class TableMgr {
 	private void formatFileHeader(String tblName, Transaction tx) {
 		String fileName = tblName + ".tbl";
 		RecordFile.formatFileHeader(fileName, tx);
+	}
+	
+	public Set<String> getTableName() {
+		return tiMap.keySet();
+	}
+	
+	public void resetWTS(Transaction tx, String tablename) {
+		System.out.println("Table Name: " + tablename);
+		RecordFile recordFile = new RecordFile(tiMap.get(tablename), tx, false);
+		recordFile.beforeFirst();
+		boolean isFinish = false;
+		while(!isFinish) {
+			isFinish = recordFile.next();
+			//關鍵區
+			while(!recordFile.recGetLock());
+			recordFile.recResetWTS();
+			recordFile.recReleaseLock();
+		}
 	}
 }

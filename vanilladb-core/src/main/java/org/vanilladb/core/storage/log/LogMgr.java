@@ -29,6 +29,7 @@ public class LogMgr implements Iterable<BasicLogRecord> {
 	 */
 	public static final int LAST_POS = 0;
 	public static final String LOG_FILE;
+	public static final String TIME_FILE;
 
 	// Optimization: store the size of pointer to other log record
 	private int pointerSize = Page.maxSize(INTEGER);
@@ -43,6 +44,8 @@ public class LogMgr implements Iterable<BasicLogRecord> {
 	static {
 		LOG_FILE = CoreProperties.getLoader().getPropertyAsString(LogMgr.class.getName() + ".LOG_FILE",
 				"vanilladb.log");
+		TIME_FILE = CoreProperties.getLoader().getPropertyAsString(LogMgr.class.getName() + ".TIME_FILE",
+				"vanilladb.time");
 	}
 
 	/**

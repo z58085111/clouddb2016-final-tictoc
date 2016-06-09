@@ -19,6 +19,7 @@ import org.vanilladb.core.storage.log.LogSeqNum;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 import org.vanilladb.core.storage.tx.concurrency.LockAbortException;
+import org.vanilladb.core.util.ByteHelper;
 
 /**
  * Manages the placement and access of records in a block.
@@ -27,12 +28,15 @@ public class RecordPage implements Record {
 	public static final int EMPTY = 0, INUSE = 1;
 	public static final int MIN_REC_SIZE = Page.maxSize(INTEGER)
 			+ Page.maxSize(BIGINT);
-	public static final int FLAG_SIZE = Page.maxSize(INTEGER);
-	public static final int MIN_SLOT_SIZE = FLAG_SIZE + MIN_REC_SIZE;
+	public static final int FLAG_SIZE = Page.maxSize(INTEGER);	
+	public static final int TS_WORD_SIZE = Page.maxSize(BIGINT);
+	public static final int MIN_SLOT_SIZE = FLAG_SIZE + MIN_REC_SIZE + TS_WORD_SIZE;
 
 	// Optimization: Materialize the constant value of flag
 	private static final IntegerConstant INUSE_CONST = new IntegerConstant(
 			INUSE), EMPTY_CONST = new IntegerConstant(EMPTY);
+
+	private static final BigIntConstant TS_WORD_CONST = new BigIntConstant(0);
 
 	private Transaction tx;
 	private BlockId blk;
@@ -137,7 +141,7 @@ public class RecordPage implements Record {
 			pos += Page.maxSize(sch.type(fldname));
 		}
 		pos = pos < MIN_REC_SIZE ? MIN_REC_SIZE : pos;
-		slotSize = pos + FLAG_SIZE;
+		slotSize = pos + FLAG_SIZE + TS_WORD_SIZE;
 	}
 
 	/**
@@ -211,6 +215,7 @@ public class RecordPage implements Record {
 			return false;
 		
 		setVal(currentPos(), INUSE_CONST);
+		setVal(currentPos() + FLAG_SIZE, TS_WORD_CONST);
 		return true;
 	}
 
@@ -225,6 +230,7 @@ public class RecordPage implements Record {
 		if (found) {
 			Constant flag = INUSE_CONST;
 			setVal(currentPos(), flag);
+			setVal(currentPos()+FLAG_SIZE, TS_WORD_CONST);
 		}
 		return found;
 	}
@@ -244,6 +250,7 @@ public class RecordPage implements Record {
 		setNextDeletedSlotId(new RecordId(new BlockId("", 0), 0));
 		Constant flag = INUSE_CONST;
 		setVal(currentPos(), flag);
+		setVal(currentPos()+FLAG_SIZE, TS_WORD_CONST);
 		return nds;
 	}
 
@@ -296,7 +303,7 @@ public class RecordPage implements Record {
 	}
 
 	public RecordId getNextDeletedSlotId() {
-		int position = currentPos() + FLAG_SIZE;
+		int position = currentPos() + FLAG_SIZE + TS_WORD_SIZE;
 		long blkNum = (Long) getVal(position, BIGINT).asJavaVal();
 		int id = (Integer) getVal(position + Page.maxSize(BIGINT), INTEGER)
 				.asJavaVal();
@@ -305,7 +312,7 @@ public class RecordPage implements Record {
 
 	public void setNextDeletedSlotId(RecordId rid) {
 		Constant val = new BigIntConstant(rid.block().number());
-		int position = currentPos() + FLAG_SIZE;
+		int position = currentPos() + FLAG_SIZE + TS_WORD_SIZE;
 		setVal(position, val);
 		val = new IntegerConstant(rid.id());
 		position += Page.maxSize(BIGINT);
@@ -317,7 +324,7 @@ public class RecordPage implements Record {
 	}
 
 	private int fieldPos(String fldName) {
-		int offset = FLAG_SIZE + myOffsetMap.get(fldName);
+		int offset = FLAG_SIZE + TS_WORD_SIZE + myOffsetMap.get(fldName);
 		return currentPos() + offset;
 	}
 
@@ -364,5 +371,77 @@ public class RecordPage implements Record {
 
 	private boolean isTempTable() {
 		return blk.fileName().startsWith("_temp");
+	}
+	
+	public void setTS_WORD(int lock, int rts, long wts) {
+		long mask = 0x7fff00000000000L;
+		
+		long ts_value = lock << 63 + (((rts - wts) << 47) & mask) + wts;
+		byte[] ts_byte = ByteHelper.toBytes(ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+	}
+	
+	public boolean isLock() {
+		long mask = 0x8000000000000000L;
+		long ts_value = byteToLong();
+		long lock = ts_value & mask >> 63;
+		if(lock == 0)
+			return false;
+		return true;
+	}
+	
+	public boolean getLock() {
+		long mask = 0x8000000000000000L;
+		long ts_value = byteToLong();
+		
+		long test = ts_value;
+		if(test >> 63 == 1)
+			return false;
+		
+		long new_ts_value = ts_value | mask;
+		byte[] ts_byte = ByteHelper.toBytes(new_ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+		
+		return true;
+	}
+	
+	public void releaseLock() {
+		long mask = 0x7ffffffffffffffL;
+		long ts_value = byteToLong();
+		long new_ts_value = ts_value & mask;
+		byte[] ts_byte = ByteHelper.toBytes(new_ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+	}
+	
+	public long getRTS() {
+		long maskWTS = 0xffffffffffffL;
+		long mask15 = 0x7fff000000000000L;
+		long ts_value = byteToLong();
+		long wts = ts_value & mask15;
+		return (ts_value & maskWTS + wts);
+	}
+	
+	public long getWTS() {
+		long mask = 0xffffffffffffL;
+		long ts_value = byteToLong();
+		return (ts_value & mask);
+	}
+	
+	public void resetWTS() {
+		long maskWTSZero = 0xffff000000000000L;
+		long ts_value = byteToLong();
+		ts_value = ts_value & maskWTSZero;
+		byte[] ts_byte = ByteHelper.toBytes(ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+	}
+	
+	private long byteToLong() {
+		Constant constant = getVal(currentPos()+FLAG_SIZE, BIGINT);
+		byte[] ts_byte = constant.asBytes();
+		return ByteHelper.toLong(ts_byte);
 	}
 }

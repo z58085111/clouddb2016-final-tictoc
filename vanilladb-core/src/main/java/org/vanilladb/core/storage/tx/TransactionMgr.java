@@ -144,6 +144,12 @@ public class TransactionMgr implements TransactionLifecycleListener {
 			VanillaDb.logMgr().flush(lsn);
 		}
 	}
+	
+	public void resetWTS(Transaction resetWTSTx, String tablename) {
+		synchronized(this) {
+			resetWTSTx.resetAllWTS(tablename);
+		}
+	}
 
 	public Transaction newTransaction(int isolationLevel, boolean readOnly) {
 		// Dispatch new transaction number

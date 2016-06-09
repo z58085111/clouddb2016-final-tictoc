@@ -407,4 +407,28 @@ public class RecordFile implements Record {
 	private boolean atLastBlock() {
 		return currentBlkNum == fileSize() - 1;
 	}
+	
+	public long recGetRTS() {
+		return rp.getRTS();
+	}
+	
+	public long recGetWTS() {
+		return rp.getWTS();
+	}
+	
+	public boolean recIsLock() {
+		return rp.isLock();
+	}
+	
+	public boolean recGetLock() {
+		return rp.getLock();
+	}
+	
+	public void recReleaseLock() {
+		rp.releaseLock();
+	}
+	
+	public void recResetWTS() {
+		rp.resetWTS();
+	}
 }

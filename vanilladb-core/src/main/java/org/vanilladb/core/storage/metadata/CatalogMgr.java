@@ -42,4 +42,8 @@ public class CatalogMgr {
 	public Map<String, IndexInfo> getIndexInfo(String tblName, Transaction tx) {
 		return idxMgr.getIndexInfo(tblName, tx);
 	}
+	
+	public TableMgr getTableMgr() {
+		return tblMgr;
+	}
 }
