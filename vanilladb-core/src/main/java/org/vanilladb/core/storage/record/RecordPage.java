@@ -29,7 +29,7 @@ public class RecordPage implements Record {
 			+ Page.maxSize(BIGINT);
 	public static final int FLAG_SIZE = Page.maxSize(INTEGER);
 	public static final int TS_WORD_SIZE = Page.maxSize(BIGINT);
-	public static final int MIN_SLOT_SIZE = FLAG_SIZE + MIN_REC_SIZE;
+	public static final int MIN_SLOT_SIZE = FLAG_SIZE + MIN_REC_SIZE + TS_WORD_SIZE;
 
 	// Optimization: Materialize the constant value of flag
 	private static final IntegerConstant INUSE_CONST = new IntegerConstant(
@@ -301,7 +301,7 @@ public class RecordPage implements Record {
 	}
 
 	public RecordId getNextDeletedSlotId() {
-		int position = currentPos() + FLAG_SIZE;
+		int position = currentPos() + FLAG_SIZE + TS_WORD_SIZE;
 		long blkNum = (Long) getVal(position, BIGINT).asJavaVal();
 		int id = (Integer) getVal(position + Page.maxSize(BIGINT), INTEGER)
 				.asJavaVal();
@@ -310,7 +310,7 @@ public class RecordPage implements Record {
 
 	public void setNextDeletedSlotId(RecordId rid) {
 		Constant val = new BigIntConstant(rid.block().number());
-		int position = currentPos() + FLAG_SIZE;
+		int position = currentPos() + FLAG_SIZE + TS_WORD_SIZE;
 		setVal(position, val);
 		val = new IntegerConstant(rid.id());
 		position += Page.maxSize(BIGINT);
@@ -322,7 +322,7 @@ public class RecordPage implements Record {
 	}
 
 	private int fieldPos(String fldName) {
-		int offset = FLAG_SIZE + myOffsetMap.get(fldName);
+		int offset = FLAG_SIZE + TS_WORD_SIZE + myOffsetMap.get(fldName);
 		return currentPos() + offset;
 	}
 
