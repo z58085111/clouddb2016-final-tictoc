@@ -407,4 +407,8 @@ public class RecordFile implements Record {
 	private boolean atLastBlock() {
 		return currentBlkNum == fileSize() - 1;
 	}
+	
+	public long getTS_WORD() {
+		return rp.byteToLong();
+	}
 }

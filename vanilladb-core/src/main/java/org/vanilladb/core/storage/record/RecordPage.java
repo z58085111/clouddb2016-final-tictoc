@@ -19,6 +19,7 @@ import org.vanilladb.core.storage.log.LogSeqNum;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 import org.vanilladb.core.storage.tx.concurrency.LockAbortException;
+import org.vanilladb.core.util.ByteHelper;
 
 /**
  * Manages the placement and access of records in a block.
@@ -369,5 +370,77 @@ public class RecordPage implements Record {
 
 	private boolean isTempTable() {
 		return blk.fileName().startsWith("_temp");
+	}
+	
+	public void setTS_WORD(int lock, int rts, long wts) {
+		long mask = 0x7fff00000000000L;
+		
+		long ts_value = lock << 63 + (((rts - wts) << 47) & mask) + wts;
+		byte[] ts_byte = ByteHelper.toBytes(ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+	}
+	
+	public boolean isLock() {
+		long mask = 0x8000000000000000L;
+		long ts_value = byteToLong();
+		long lock = ts_value & mask >> 63;
+		if(lock == 0)
+			return false;
+		return true;
+	}
+	
+	public boolean getLock() {
+		long mask = 0x8000000000000000L;
+		long ts_value = byteToLong();
+		
+		long test = ts_value;
+		if(test >> 63 == 1)
+			return false;
+		
+		long new_ts_value = ts_value | mask;
+		byte[] ts_byte = ByteHelper.toBytes(new_ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+		
+		return true;
+	}
+	
+	public void releaseLock() {
+		long mask = 0x7ffffffffffffffL;
+		long ts_value = byteToLong();
+		long new_ts_value = ts_value & mask;
+		byte[] ts_byte = ByteHelper.toBytes(new_ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+	}
+	
+	public long getRTS() {
+		long maskWTS = 0xffffffffffffL;
+		long mask15 = 0x7fff000000000000L;
+		long ts_value = byteToLong();
+		long wts = ts_value & mask15;
+		return (ts_value & maskWTS + wts);
+	}
+	
+	public long getWTS() {
+		long mask = 0xffffffffffffL;
+		long ts_value = byteToLong();
+		return (ts_value & mask);
+	}
+	
+	public void resetWTS() {
+		long maskWTSZero = 0xffff000000000000L;
+		long ts_value = byteToLong();
+		ts_value = ts_value & maskWTSZero;
+		byte[] ts_byte = ByteHelper.toBytes(ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+	}
+	
+	public long byteToLong() {
+		Constant constant = getVal(currentPos()+FLAG_SIZE, BIGINT);
+		byte[] ts_byte = constant.asBytes();
+		return ByteHelper.toLong(ts_byte);
 	}
 }
