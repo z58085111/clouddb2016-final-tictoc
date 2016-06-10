@@ -23,7 +23,7 @@ public class ResetWTS extends Task{
 	public ResetWTS(long accumulatedTime, String tablename) {
 		this.accumulatedTime = accumulatedTime;
 		this.tablename = tablename;
-		timeThreshold = 5*PERIOD;
+		timeThreshold = 3*PERIOD;
 	}
 	
 	public static long readTimeFile(String tblname) throws IOException {
@@ -38,9 +38,11 @@ public class ResetWTS extends Task{
 	public void updateTime() {
 		if(accumulatedTime >= timeThreshold) {
 			Transaction tx = VanillaDb.txMgr().newTransaction(Connection.TRANSACTION_SERIALIZABLE, false);
+			System.out.println("resetWTS");
 			VanillaDb.txMgr().resetWTS(tx, tablename);
 			tx.commit();
 			accumulatedTime = 0;
+			writeTimeFile();
 		} else {
 			accumulatedTime+=PERIOD;
 			writeTimeFile();
