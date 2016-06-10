@@ -1,7 +1,7 @@
 package org.vanilladb.core.storage.tx;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +11,9 @@ import java.util.logging.Logger;
 
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.Tuple;
+import org.vanilladb.core.sql.TupleType;
 import org.vanilladb.core.storage.buffer.BufferMgr;
+import org.vanilladb.core.storage.record.RecordFile;
 import org.vanilladb.core.storage.record.RecordInfo;
 import org.vanilladb.core.storage.tx.concurrency.ConcurrencyMgr;
 import org.vanilladb.core.storage.tx.recovery.RecoveryMgr;
@@ -33,6 +35,7 @@ public class Transaction {
 
 	private Map<RecordInfo, Tuple> readSet;
 	private Map<RecordInfo, Tuple> writeSet;
+	private ArrayList<RecordInfo> insertRecs;
 	
 	/**
 	 * Creates a new transaction and associates it with a recovery manager and a
@@ -52,7 +55,7 @@ public class Transaction {
 		this.readOnly = readOnly;
 		this.readSet = new LinkedHashMap<RecordInfo, Tuple>();
 		this.writeSet = new LinkedHashMap<RecordInfo, Tuple>();
-		
+		this.insertRecs = new ArrayList<RecordInfo>();
 
 		lifecycleListeners = new LinkedList<TransactionLifecycleListener>();
 		// XXX: A transaction manager must be added before a recovery manager to
@@ -78,17 +81,17 @@ public class Transaction {
 	public void addLifecycleListener(TransactionLifecycleListener listener) {
 		lifecycleListeners.add(listener);
 	}
-	public Tuple getReadTuple(RecordInfo recInfo) {
-		return readSet.get(recInfo);
+	public Tuple getTuple(TupleType type, RecordInfo recInfo) {
+		return (type == TupleType.READ)? readSet.get(recInfo) : writeSet.get(recInfo);
 	}
-	public Tuple getWriteTuple(RecordInfo recInfo) {
-		return writeSet.get(recInfo);
-	}
-	public void addReadTuple(Tuple t) {
-		readSet.put(t.recordInfo(), t);
-	}
-	public void addWriteTuple(Tuple t) {
-		writeSet.put(t.recordInfo(), t);
+	public void addTuple(Tuple t) {
+		if(t.type() == TupleType.READ) {
+			readSet.put(t.recordInfo(), t);
+		} else {
+			writeSet.put(t.recordInfo(), t);
+			if(t.type() == TupleType.INSERT)
+				insertRecs.add(t.recordInfo());
+		}
 	}
 	
 	/**
@@ -97,28 +100,45 @@ public class Transaction {
 	 * locks, and unpins any pinned blocks.
 	 */
 	public void commit() {
+		write();
 		for (TransactionLifecycleListener l : lifecycleListeners)
 			l.onTxCommit(this);
 
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("transaction " + txNum + " committed");
 	}
-
+	public void validate() throws InvalidException {
+		
+	}
+	private void write() {
+		Set<RecordInfo> keys = writeSet.keySet();
+		for(RecordInfo recInfo : keys) {
+			Tuple tuple = writeSet.get(recInfo);
+			tuple.executeUpdate(this);
+		}
+	}
 	/**
 	 * Rolls back the current transaction. Undoes any modified values, flushes
 	 * those blocks, writes and flushes a rollback record to the log, releases
 	 * all locks, and unpins any pinned blocks.
 	 */
 	public void rollback() {
+		rollbackInsert();
 		for (TransactionLifecycleListener l : lifecycleListeners) {
-
 			l.onTxRollback(this);
 		}
 
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("transaction " + txNum + " rolled back");
 	}
-
+	private void rollbackInsert() {
+		for(RecordInfo recInfo : insertRecs) {
+			Tuple tuple = writeSet.get(recInfo);
+			RecordFile rf = tuple.openCurrentTuple(this, true);
+			rf.delete();
+			tuple.closeCurrentTuple();
+		}
+	}
 	/**
 	 * Finishes the current statement. Releases slocks obtained so far for
 	 * repeatable read isolation level and does nothing in serializable

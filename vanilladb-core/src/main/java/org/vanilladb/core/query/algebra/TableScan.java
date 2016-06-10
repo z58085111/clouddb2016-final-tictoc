@@ -4,6 +4,7 @@ import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.Schema;
 import org.vanilladb.core.sql.TS_word;
 import org.vanilladb.core.sql.Tuple;
+import org.vanilladb.core.sql.TupleType;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.record.RecordFile;
 import org.vanilladb.core.storage.record.RecordId;
@@ -60,13 +61,10 @@ public class TableScan implements UpdateScan {
 	@Override
 	public Constant getVal(String fldName) {
 		Constant val = rf.getVal(fldName);
-		/*RecordInfo recInfo = new RecordInfo(ti, getRecordId());
-		Tuple t = tx.getReadTuple(recInfo);
-		if(t == null)
-			t = new Tuple(recInfo, new TS_word(rf.getTS_WORD()));
+		Tuple t = getTxnTuple(TupleType.READ);
 		t.setVal(fldName, val);
-		tx.addReadTuple(t);*/
-			
+		tx.addTuple(t);
+		
 		return val;
 	}
 
@@ -88,23 +86,24 @@ public class TableScan implements UpdateScan {
 	 */
 	@Override
 	public void setVal(String fldName, Constant val) {
-		/*RecordInfo recInfo = new RecordInfo(ti, getRecordId());
-		Tuple t = tx.getReadTuple(recInfo);
-		if(t == null)
-			t = new Tuple(recInfo, new TS_word(rf.getTS_WORD()));
+		Tuple t = getTxnTuple(TupleType.MODIFY);
 		t.setVal(fldName, val);
-		tx.addWriteTuple(t);*/
-		rf.setVal(fldName, val);
+		tx.addTuple(t);
+//		rf.setVal(fldName, val);
 	}
 
 	@Override
 	public void delete() {
-		rf.delete();
+		Tuple t = getTxnTuple(TupleType.DELETE);
+		tx.addTuple(t);
+//		rf.delete();
 	}
 
 	@Override
 	public void insert() {
 		rf.insert();
+		Tuple t = getTxnTuple(TupleType.INSERT);
+		tx.addTuple(t);
 	}
 
 	@Override
@@ -115,5 +114,15 @@ public class TableScan implements UpdateScan {
 	@Override
 	public void moveToRecordId(RecordId rid) {
 		rf.moveToRecordId(rid);
+	}
+	
+	private Tuple getTxnTuple(TupleType type) {
+		RecordInfo recInfo = new RecordInfo(ti, getRecordId());
+		Tuple t = tx.getTuple(type, recInfo);
+		if(t == null) {
+			TS_word tsw = new TS_word(rf.getTS_WORD());
+			t = new Tuple(type, recInfo, tsw);
+		}
+		return t;
 	}
 }

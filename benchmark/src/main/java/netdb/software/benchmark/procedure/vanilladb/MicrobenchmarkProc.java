@@ -9,6 +9,7 @@ import org.vanilladb.core.query.algebra.Scan;
 import org.vanilladb.core.remote.storedprocedure.SpResultSet;
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.storedprocedure.StoredProcedure;
+import org.vanilladb.core.storage.tx.InvalidException;
 import org.vanilladb.core.storage.tx.Transaction;
 import org.vanilladb.core.storage.tx.concurrency.LockAbortException;
 
@@ -37,6 +38,11 @@ public class MicrobenchmarkProc implements StoredProcedure {
 			paramHelper.setCommitted(false);
 			if (logger.isLoggable(Level.WARNING))
 				logger.warning("LockAbortException: " + lbe.getMessage());
+		} catch (InvalidException ie) {
+			tx.rollback();
+			paramHelper.setCommitted(false);
+			if (logger.isLoggable(Level.WARNING))
+				logger.warning("InvalidException: " + ie.getMessage());
 		} catch (Exception e) {
 			tx.rollback();
 			paramHelper.setCommitted(false);

@@ -13,9 +13,9 @@ public class RecordInfo {
 		this.recId = recId;
 	}
 	
-	public RecordFile open(Transaction tx) {
+	public RecordFile open(Transaction tx, boolean doLog) {
 		if(rf==null) {
-			rf = tblInfo.open(tx, false);
+			rf = tblInfo.open(tx, doLog);
 			rf.moveToRecordId(recId);
 		}
 		return rf;
