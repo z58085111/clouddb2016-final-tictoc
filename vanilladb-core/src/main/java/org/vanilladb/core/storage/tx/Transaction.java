@@ -1,12 +1,18 @@
 package org.vanilladb.core.storage.tx;
 
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.vanilladb.core.server.VanillaDb;
+import org.vanilladb.core.sql.Tuple;
 import org.vanilladb.core.storage.buffer.BufferMgr;
+import org.vanilladb.core.storage.record.RecordInfo;
 import org.vanilladb.core.storage.tx.concurrency.ConcurrencyMgr;
 import org.vanilladb.core.storage.tx.recovery.RecoveryMgr;
 
@@ -25,6 +31,9 @@ public class Transaction {
 	private long txNum;
 	private boolean readOnly;
 
+	private Map<RecordInfo, Tuple> readSet;
+	private Map<RecordInfo, Tuple> writeSet;
+	
 	/**
 	 * Creates a new transaction and associates it with a recovery manager and a
 	 * concurrency manager. This constructor depends on the file, log, and
@@ -41,6 +50,9 @@ public class Transaction {
 		this.bufferMgr = (BufferMgr) bufferMgr;
 		this.txNum = txNum;
 		this.readOnly = readOnly;
+		this.readSet = new LinkedHashMap<RecordInfo, Tuple>();
+		this.writeSet = new LinkedHashMap<RecordInfo, Tuple>();
+		
 
 		lifecycleListeners = new LinkedList<TransactionLifecycleListener>();
 		// XXX: A transaction manager must be added before a recovery manager to
@@ -66,7 +78,19 @@ public class Transaction {
 	public void addLifecycleListener(TransactionLifecycleListener listener) {
 		lifecycleListeners.add(listener);
 	}
-
+	public Tuple getReadTuple(RecordInfo recInfo) {
+		return readSet.get(recInfo);
+	}
+	public Tuple getWriteTuple(RecordInfo recInfo) {
+		return writeSet.get(recInfo);
+	}
+	public void addReadTuple(Tuple t) {
+		readSet.put(t.recordInfo(), t);
+	}
+	public void addWriteTuple(Tuple t) {
+		writeSet.put(t.recordInfo(), t);
+	}
+	
 	/**
 	 * Commits the current transaction. Flushes all modified blocks (and their
 	 * log records), writes and flushes a commit record to the log, releases all

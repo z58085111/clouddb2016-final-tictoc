@@ -1,5 +1,6 @@
 package org.vanilladb.core.sql;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.vanilladb.core.storage.record.RecordFile;
@@ -14,6 +15,7 @@ public class Tuple {
 	public Tuple(RecordInfo recInfo, TS_word tsw) {
 		this.recInfo = recInfo;
 		this.tsw = tsw;
+		this.recVal = new LinkedHashMap<String, Constant>();
 	}
 	
 	public RecordFile openCurrentTuple(Transaction tx) {
@@ -26,5 +28,26 @@ public class Tuple {
 	
 	public TS_word getTS_WORD() {
 		return tsw;
+	}
+	
+	public Constant getVal(String fld) {
+		return recVal.get(fld);
+	}
+	
+	public void setVal(String fld, Constant val) {
+		recVal.put(fld, val);
+	}
+	
+	public RecordInfo recordInfo() {
+		return recInfo;
+	}
+	
+	public boolean equals(Object obj) {
+		if(!(obj instanceof Tuple))
+			return false;
+		if(obj == this)
+			return true;
+		Tuple t = (Tuple) obj;
+		return recInfo.equals(t.recInfo);
 	}
 }

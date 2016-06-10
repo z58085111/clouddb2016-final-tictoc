@@ -25,4 +25,13 @@ public class RecordInfo {
 		if(rf!=null)
 			rf.close();
 	}
+	
+	public boolean equals(Object obj) {
+		if(!(obj instanceof RecordInfo))
+			return false;
+		if(obj == this)
+			return true;
+		RecordInfo recInfo = (RecordInfo) obj;
+		return tblInfo.tableName().equals(recInfo.tblInfo.tableName()) && recId.equals(recInfo.recId);
+	}
 }

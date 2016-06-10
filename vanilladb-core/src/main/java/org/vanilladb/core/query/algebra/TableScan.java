@@ -2,9 +2,12 @@ package org.vanilladb.core.query.algebra;
 
 import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.Schema;
+import org.vanilladb.core.sql.TS_word;
+import org.vanilladb.core.sql.Tuple;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.record.RecordFile;
 import org.vanilladb.core.storage.record.RecordId;
+import org.vanilladb.core.storage.record.RecordInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 
 /**
@@ -15,7 +18,8 @@ import org.vanilladb.core.storage.tx.Transaction;
 public class TableScan implements UpdateScan {
 	private RecordFile rf;
 	private Schema schema;
-
+	private Transaction tx;
+	private TableInfo ti;
 	/**
 	 * Creates a new table scan, and opens its corresponding record file.
 	 * 
@@ -25,6 +29,8 @@ public class TableScan implements UpdateScan {
 	 *            the calling transaction
 	 */
 	public TableScan(TableInfo ti, Transaction tx) {
+		this.tx = tx;
+		this.ti = ti;
 		rf = ti.open(tx, true);
 		schema = ti.schema();
 	}
@@ -53,7 +59,15 @@ public class TableScan implements UpdateScan {
 	 */
 	@Override
 	public Constant getVal(String fldName) {
-		return rf.getVal(fldName);
+		Constant val = rf.getVal(fldName);
+		/*RecordInfo recInfo = new RecordInfo(ti, getRecordId());
+		Tuple t = tx.getReadTuple(recInfo);
+		if(t == null)
+			t = new Tuple(recInfo, new TS_word(rf.getTS_WORD()));
+		t.setVal(fldName, val);
+		tx.addReadTuple(t);*/
+			
+		return val;
 	}
 
 	@Override
@@ -74,6 +88,12 @@ public class TableScan implements UpdateScan {
 	 */
 	@Override
 	public void setVal(String fldName, Constant val) {
+		/*RecordInfo recInfo = new RecordInfo(ti, getRecordId());
+		Tuple t = tx.getReadTuple(recInfo);
+		if(t == null)
+			t = new Tuple(recInfo, new TS_word(rf.getTS_WORD()));
+		t.setVal(fldName, val);
+		tx.addWriteTuple(t);*/
 		rf.setVal(fldName, val);
 	}
 
