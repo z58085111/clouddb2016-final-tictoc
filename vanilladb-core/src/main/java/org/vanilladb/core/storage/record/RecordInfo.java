@@ -3,7 +3,7 @@ package org.vanilladb.core.storage.record;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 
-public class RecordInfo {
+public class RecordInfo implements Comparable {
 	private TableInfo tblInfo;
 	private RecordId recId;
 	private RecordFile rf;
@@ -22,16 +22,30 @@ public class RecordInfo {
 	}
 
 	public void close() {
-		if(rf!=null)
+		if(rf!=null) {
 			rf.close();
+			rf = null;
+		}
 	}
 	
 	public boolean equals(Object obj) {
-		if(!(obj instanceof RecordInfo))
-			return false;
-		if(obj == this)
+		if (obj == this)
 			return true;
+		if (obj == null || !(obj.getClass().equals(RecordInfo.class)))
+			return false;
 		RecordInfo recInfo = (RecordInfo) obj;
 		return tblInfo.tableName().equals(recInfo.tblInfo.tableName()) && recId.equals(recInfo.recId);
+	}
+	
+	public int hashCode() {
+		int hash = 17;
+		hash = hash * 31 + tblInfo.tableName().hashCode();
+		hash = hash * 31 + recId.hashCode();
+		return hash;
+	}
+
+	@Override
+	public int compareTo(Object o) {
+		return hashCode() - ((RecordInfo) o).hashCode();
 	}
 }

@@ -58,12 +58,15 @@ public class Tuple {
 //			rf.insert();
 			for(Entry<String, Constant> entry : recVal.entrySet()) {
 				rf.setVal(entry.getKey(), entry.getValue());
+				rf.setTS_WORD(0, tx.commitTS());
 			}
+			rf.recReleaseLock();
 			closeCurrentTuple();
 			break;
 		case DELETE:
 			rf = openCurrentTuple(tx, true);
 			rf.delete();
+			rf.recReleaseLock();
 			closeCurrentTuple();
 			break;
 		default:
@@ -72,11 +75,15 @@ public class Tuple {
 	}
 	
 	public boolean equals(Object obj) {
-		if(!(obj instanceof Tuple))
-			return false;
-		if(obj == this)
+		if (obj == this)
 			return true;
+		if (obj == null || !(obj.getClass().equals(Tuple.class)))
+			return false;
 		Tuple t = (Tuple) obj;
-		return recInfo.equals(t.recInfo);
+		return this.recInfo.equals(t.recInfo);
+	}
+	
+	public int hashCode() {
+		return recInfo.hashCode();
 	}
 }

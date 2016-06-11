@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -38,7 +40,8 @@ public class Transaction {
 
 	private Map<RecordInfo, Tuple> readSet;
 	private Map<RecordInfo, Tuple> writeSet;
-	private ArrayList<RecordInfo> insertRecs;
+	private Set<RecordInfo> insertRecs;
+	private long commitTS;
 	
 	/**
 	 * Creates a new transaction and associates it with a recovery manager and a
@@ -57,8 +60,9 @@ public class Transaction {
 		this.txNum = txNum;
 		this.readOnly = readOnly;
 		this.readSet = new LinkedHashMap<RecordInfo, Tuple>();
-		this.writeSet = new LinkedHashMap<RecordInfo, Tuple>();
-		this.insertRecs = new ArrayList<RecordInfo>();
+		this.writeSet = new TreeMap<RecordInfo, Tuple>();
+		this.insertRecs = new TreeSet<RecordInfo>();
+		this.commitTS = 0;
 
 		lifecycleListeners = new LinkedList<TransactionLifecycleListener>();
 		// XXX: A transaction manager must be added before a recovery manager to
@@ -96,14 +100,16 @@ public class Transaction {
 				insertRecs.add(t.recordInfo());
 		}
 	}
-	
+	public long commitTS() {
+		return this.commitTS;
+	}
 	/**
 	 * Commits the current transaction. Flushes all modified blocks (and their
 	 * log records), writes and flushes a commit record to the log, releases all
 	 * locks, and unpins any pinned blocks.
 	 */
 	public void commit() {
-//		validate();
+		validate();
 		write();
 		for (TransactionLifecycleListener l : lifecycleListeners)
 			l.onTxCommit(this);
@@ -113,32 +119,33 @@ public class Transaction {
 	}
 	
 	public void validate() throws InvalidException {
-		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
+//		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
 		// step 1: lock write set
 		for(Tuple tuple : writeSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			rf.recGetLock();
-			rf.close();
+			tuple.closeCurrentTuple();
 		}
 		
 		// step 2: compute commit_ts
-		/*long commitTS = 0;
+		this.commitTS = 0;
 		for(Tuple tuple : writeSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			TSWord tsw = rf.getTS_WORD();
 			long curRTS = tsw.rts() + 1;
-			if(curRTS > commitTS)
-				commitTS = curRTS;
-			rf.close();
+			if(curRTS > this.commitTS)
+				this.commitTS = curRTS;
+			tuple.closeCurrentTuple();
 		}
 		for(Tuple tuple : readSet.values()) {
 			long wts = tuple.getTS_WORD().wts();
-			if(wts > commitTS)
-				commitTS = wts;
-		}*/
-		
+			if(wts > this.commitTS)
+				this.commitTS = wts;
+		}
+
+//		System.out.println(this.commitTS);
 		// step 3: validate the read set
-		/*for(Tuple tuple : readSet.values()) {
+		for(Tuple tuple : readSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			boolean success = true;
 			TSWord tsw1, tsw2;
@@ -146,24 +153,24 @@ public class Transaction {
 			do {
 				success = true;
 				tsw1 = tsw2 = rf.getTS_WORD();
-				if( readTSW.wts()!=tsw1.wts() ||
-					tsw1.rts()<=commitTS && rf.recIsLocked() && !writeSet.containsKey(tuple.recordInfo()) )
-					throw new InvalidException("abort tx." + txNum + " for invalidation");
+				if( readTSW.wts()!=tsw1.wts() ) 
+					throw new InvalidException("abort tx." + txNum + " because tuple is unclean. "+this.commitTS);
+				if(	tsw1.rts()<=this.commitTS && rf.recIsLocked() && !writeSet.containsKey(tuple.recordInfo()) )
+					throw new InvalidException("abort tx." + txNum + " because it is modifing by another txn: "+this.commitTS);
 				// extend the rts of tuple
-				if(tsw1.rts()<=commitTS) {
-					long delta = commitTS - tsw1.wts();
+				if(tsw1.rts()<=this.commitTS) {
+					long delta = this.commitTS - tsw1.wts();
 					long shift = delta - delta ^ 0x7fff;
 					long newWTS = tsw2.wts()+shift;
 					delta = delta - shift;
 					if(tsw1.tsw()!=rf.getTS_WORD().tsw())
 						success = false;
 					else
-						rf.setTS_WORD(1, delta, newWTS);
+						rf.setTS_WORD(delta, newWTS);
 				}
 			} while (!success);
-			rf.recReleaseLock();
 			tuple.closeCurrentTuple();
-		}*/
+		}
 	}
 	
 	private void write() {

@@ -66,7 +66,7 @@ public class MicrobenchmarkParamGen implements TxParamGenerator {
 
 			// set the update value
 			for (int i = 0; i < READ_COUNT; i++)
-				paramList.add(rvg.nextDouble() * 100000);
+				paramList.add(rvg.nextDouble() * 10000);
 
 		} else {
 			// set write count to 0

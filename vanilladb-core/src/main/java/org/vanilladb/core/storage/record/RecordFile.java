@@ -409,8 +409,8 @@ public class RecordFile implements Record {
 		return currentBlkNum == fileSize() - 1;
 	}
 	
-	public void setTS_WORD(int lock, long delta, long wts) {
-		rp.setTS_WORD(lock, delta, wts);
+	public void setTS_WORD(long delta, long wts) {
+		rp.setTS_WORD(delta, wts);
 	}
 	
 	public TSWord getTS_WORD() {
