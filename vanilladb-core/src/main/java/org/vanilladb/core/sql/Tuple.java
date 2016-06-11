@@ -12,9 +12,9 @@ public class Tuple {
 	private TupleType type;
 	private RecordInfo recInfo;
 	private Map<String, Constant> recVal;
-	private TS_word tsw;
+	private TSWord tsw;
 	
-	public Tuple(TupleType type, RecordInfo recInfo, TS_word tsw) {
+	public Tuple(TupleType type, RecordInfo recInfo, TSWord tsw) {
 		this.type = type;
 		this.recInfo = recInfo;
 		this.tsw = tsw;
@@ -33,7 +33,7 @@ public class Tuple {
 		recInfo.close();
 	}
 	
-	public TS_word getTS_WORD() {
+	public TSWord getTS_WORD() {
 		return tsw;
 	}
 	

@@ -2,14 +2,17 @@ package org.vanilladb.core.storage.tx;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.vanilladb.core.server.VanillaDb;
+import org.vanilladb.core.sql.TSWord;
 import org.vanilladb.core.sql.Tuple;
 import org.vanilladb.core.sql.TupleType;
 import org.vanilladb.core.storage.buffer.BufferMgr;
@@ -100,6 +103,7 @@ public class Transaction {
 	 * locks, and unpins any pinned blocks.
 	 */
 	public void commit() {
+//		validate();
 		write();
 		for (TransactionLifecycleListener l : lifecycleListeners)
 			l.onTxCommit(this);
@@ -107,9 +111,61 @@ public class Transaction {
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("transaction " + txNum + " committed");
 	}
+	
 	public void validate() throws InvalidException {
+		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
+		// step 1: lock write set
+		for(Tuple tuple : writeSet.values()) {
+			RecordFile rf = tuple.openCurrentTuple(this, false);
+			rf.recGetLock();
+			rf.close();
+		}
 		
+		// step 2: compute commit_ts
+		/*long commitTS = 0;
+		for(Tuple tuple : writeSet.values()) {
+			RecordFile rf = tuple.openCurrentTuple(this, false);
+			TSWord tsw = rf.getTS_WORD();
+			long curRTS = tsw.rts() + 1;
+			if(curRTS > commitTS)
+				commitTS = curRTS;
+			rf.close();
+		}
+		for(Tuple tuple : readSet.values()) {
+			long wts = tuple.getTS_WORD().wts();
+			if(wts > commitTS)
+				commitTS = wts;
+		}*/
+		
+		// step 3: validate the read set
+		/*for(Tuple tuple : readSet.values()) {
+			RecordFile rf = tuple.openCurrentTuple(this, false);
+			boolean success = true;
+			TSWord tsw1, tsw2;
+			TSWord readTSW = tuple.getTS_WORD();
+			do {
+				success = true;
+				tsw1 = tsw2 = rf.getTS_WORD();
+				if( readTSW.wts()!=tsw1.wts() ||
+					tsw1.rts()<=commitTS && rf.recIsLocked() && !writeSet.containsKey(tuple.recordInfo()) )
+					throw new InvalidException("abort tx." + txNum + " for invalidation");
+				// extend the rts of tuple
+				if(tsw1.rts()<=commitTS) {
+					long delta = commitTS - tsw1.wts();
+					long shift = delta - delta ^ 0x7fff;
+					long newWTS = tsw2.wts()+shift;
+					delta = delta - shift;
+					if(tsw1.tsw()!=rf.getTS_WORD().tsw())
+						success = false;
+					else
+						rf.setTS_WORD(1, delta, newWTS);
+				}
+			} while (!success);
+			rf.recReleaseLock();
+			tuple.closeCurrentTuple();
+		}*/
 	}
+	
 	private void write() {
 		Set<RecordInfo> keys = writeSet.keySet();
 		for(RecordInfo recInfo : keys) {

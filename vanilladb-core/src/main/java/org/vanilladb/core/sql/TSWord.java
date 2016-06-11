@@ -1,11 +1,11 @@
 package org.vanilladb.core.sql;
 
-public class TS_word {
+public class TSWord {
 	private long tsw;
-	private long delta;
 	private long wts;
+	private long delta;
 	
-	public TS_word (long tsw) {
+	public TSWord (long tsw) {
 		this.tsw = tsw;
 		this.wts = (tsw & 0xffffffffffffL);
 		this.delta = (tsw & 0x7fff000000000000L);
@@ -17,6 +17,12 @@ public class TS_word {
 	
 	public long wts() {
 		return wts;
+	}
+	
+	public void setWTS(long wts) {
+		this.tsw = tsw & 0x000000000000L;
+		this.tsw = tsw | wts;
+		this.wts = wts;
 	}
 	
 	public long rts() {

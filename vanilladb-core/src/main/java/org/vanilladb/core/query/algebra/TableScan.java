@@ -2,7 +2,7 @@ package org.vanilladb.core.query.algebra;
 
 import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.Schema;
-import org.vanilladb.core.sql.TS_word;
+import org.vanilladb.core.sql.TSWord;
 import org.vanilladb.core.sql.Tuple;
 import org.vanilladb.core.sql.TupleType;
 import org.vanilladb.core.storage.metadata.TableInfo;
@@ -120,7 +120,7 @@ public class TableScan implements UpdateScan {
 		RecordInfo recInfo = new RecordInfo(ti, getRecordId());
 		Tuple t = tx.getTuple(type, recInfo);
 		if(t == null) {
-			TS_word tsw = new TS_word(rf.getTS_WORD());
+			TSWord tsw = rf.getTS_WORD();
 			t = new Tuple(type, recInfo, tsw);
 		}
 		return t;

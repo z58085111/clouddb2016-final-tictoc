@@ -4,6 +4,7 @@ import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.Record;
 import org.vanilladb.core.sql.SchemaIncompatibleException;
+import org.vanilladb.core.sql.TSWord;
 import org.vanilladb.core.sql.Type;
 import org.vanilladb.core.storage.buffer.Buffer;
 import org.vanilladb.core.storage.file.BlockId;
@@ -408,7 +409,23 @@ public class RecordFile implements Record {
 		return currentBlkNum == fileSize() - 1;
 	}
 	
-	public long getTS_WORD() {
-		return rp.byteToLong();
+	public void setTS_WORD(int lock, long delta, long wts) {
+		rp.setTS_WORD(lock, delta, wts);
+	}
+	
+	public TSWord getTS_WORD() {
+		return new TSWord(rp.byteToLong());
+	}
+	
+	public boolean recIsLocked() {
+		return rp.isLock();
+	}
+	
+	public void recGetLock() {
+		rp.getLock();
+	}
+	
+	public void recReleaseLock() {
+		rp.releaseLock();
 	}
 }

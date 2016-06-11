@@ -372,6 +372,15 @@ public class RecordPage implements Record {
 		return blk.fileName().startsWith("_temp");
 	}
 	
+	public void setTS_WORD(int lock, long delta, long wts) {
+		long mask = 0x7fff00000000000L;
+		
+		long ts_value = lock << 63 + ((delta << 47) & mask) + wts;
+		byte[] ts_byte = ByteHelper.toBytes(ts_value);
+		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		setVal(currentPos()+FLAG_SIZE, constant);
+	}
+	
 	public void setTS_WORD(int lock, int rts, long wts) {
 		long mask = 0x7fff00000000000L;
 		
