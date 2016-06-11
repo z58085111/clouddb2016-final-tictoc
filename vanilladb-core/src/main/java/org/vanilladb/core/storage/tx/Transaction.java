@@ -119,7 +119,7 @@ public class Transaction {
 	}
 	
 	public void validate() throws InvalidException {
-//		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
+		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
 		// step 1: lock write set
 		for(Tuple tuple : writeSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
@@ -143,7 +143,7 @@ public class Transaction {
 				this.commitTS = wts;
 		}
 
-//		System.out.println(this.commitTS);
+		System.out.println("commit_ts = "+this.commitTS);
 		// step 3: validate the read set
 		for(Tuple tuple : readSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
@@ -155,8 +155,10 @@ public class Transaction {
 				tsw1 = tsw2 = rf.getTS_WORD();
 				if( readTSW.wts()!=tsw1.wts() ) 
 					throw new InvalidException("abort tx." + txNum + " because tuple is unclean. "+this.commitTS);
-				if(	tsw1.rts()<=this.commitTS && rf.recIsLocked() && !writeSet.containsKey(tuple.recordInfo()) )
+				if(	tsw1.rts()<=this.commitTS && rf.recIsLocked() && !writeSet.containsKey(tuple.recordInfo()) ) {
+					System.out.println("v1.rts = "+tsw1.rts() + ";locked= " + rf.recIsLocked());
 					throw new InvalidException("abort tx." + txNum + " because it is modifing by another txn: "+this.commitTS);
+				}
 				// extend the rts of tuple
 				if(tsw1.rts()<=this.commitTS) {
 					long delta = this.commitTS - tsw1.wts();
@@ -179,6 +181,7 @@ public class Transaction {
 			Tuple tuple = writeSet.get(recInfo);
 			tuple.executeUpdate(this);
 		}
+		bufferMgr.flushAll();
 	}
 	/**
 	 * Rolls back the current transaction. Undoes any modified values, flushes

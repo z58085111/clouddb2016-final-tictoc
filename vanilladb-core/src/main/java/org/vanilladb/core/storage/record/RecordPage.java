@@ -390,21 +390,19 @@ public class RecordPage implements Record {
 		setVal(currentPos()+FLAG_SIZE, constant);
 	}
 	
-	public boolean isLock() {
+	public boolean isLocked() {
 		long mask = 0x8000000000000000L;
 		long ts_value = byteToLong();
-		long lock = ts_value & mask >> 63;
-		if(lock == 0)
-			return false;
-		return true;
+		long lock = ts_value & mask;
+		return lock != 0;
 	}
 	
 	public boolean getLock() {
 		long mask = 0x8000000000000000L;
 		long ts_value = byteToLong();
 		
-		long test = ts_value;
-		if(test >> 63 == 1)
+		long test = ts_value & mask;
+		if(test != 0)
 			return false;
 		
 		long new_ts_value = ts_value | mask;
@@ -416,7 +414,7 @@ public class RecordPage implements Record {
 	}
 	
 	public void releaseLock() {
-		long mask = 0x7ffffffffffffffL;
+		long mask = 0x7fffffffffffffffL;
 		long ts_value = byteToLong();
 		long new_ts_value = ts_value & mask;
 		byte[] ts_byte = ByteHelper.toBytes(new_ts_value);

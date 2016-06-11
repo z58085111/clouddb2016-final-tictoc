@@ -418,11 +418,11 @@ public class RecordFile implements Record {
 	}
 	
 	public boolean recIsLocked() {
-		return rp.isLock();
+		return rp.isLocked();
 	}
 	
-	public void recGetLock() {
-		rp.getLock();
+	public boolean recGetLock() {
+		return rp.getLock();
 	}
 	
 	public void recReleaseLock() {
