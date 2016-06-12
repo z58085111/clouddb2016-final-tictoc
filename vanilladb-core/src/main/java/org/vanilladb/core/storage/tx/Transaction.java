@@ -94,6 +94,8 @@ public class Transaction {
 	public void addTuple(Tuple t) {
 		if(t.type() == TupleType.READ) {
 			readSet.put(t.recordInfo(), t);
+			if(t.TSWord().wts()>1)
+			System.out.println("wts= "+t.TSWord().wts()+" ; commit_ts = "+this.commitTS);
 		} else {
 			writeSet.put(t.recordInfo(), t);
 			if(t.type() == TupleType.INSERT)
@@ -119,7 +121,7 @@ public class Transaction {
 	}
 	
 	public void validate() throws InvalidException {
-		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
+//		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
 		// step 1: lock write set
 		for(Tuple tuple : writeSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
@@ -138,18 +140,21 @@ public class Transaction {
 			tuple.closeCurrentTuple();
 		}
 		for(Tuple tuple : readSet.values()) {
-			long wts = tuple.getTS_WORD().wts();
-			if(wts > this.commitTS)
+			long wts = tuple.TSWord().wts();
+//			if(wts>1)
+//				System.out.println("tsw= "+tuple.TSWord().tsw() +"; wts= "+tuple.TSWord().wts()+"; delta="+tuple.TSWord().delta());
+			if(wts > this.commitTS){
 				this.commitTS = wts;
+//				System.out.println("wts= "+wts+" ; commit_ts = "+this.commitTS);
+			}
 		}
 
-		System.out.println("commit_ts = "+this.commitTS);
 		// step 3: validate the read set
 		for(Tuple tuple : readSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			boolean success = true;
 			TSWord tsw1, tsw2;
-			TSWord readTSW = tuple.getTS_WORD();
+			TSWord readTSW = tuple.TSWord();
 			do {
 				success = true;
 				tsw1 = tsw2 = rf.getTS_WORD();
@@ -162,13 +167,15 @@ public class Transaction {
 				// extend the rts of tuple
 				if(tsw1.rts()<=this.commitTS) {
 					long delta = this.commitTS - tsw1.wts();
-					long shift = delta - delta ^ 0x7fff;
-					long newWTS = tsw2.wts()+shift;
+					long overflow = delta - 0x7fff;
+					long shift = (overflow > 0)? (delta - overflow) : 0 ;
+					long shiftedWTS = tsw2.wts()+shift;
 					delta = delta - shift;
+//					System.out.println("delta= "+delta+" ; shift= "+shift+" ; wts= "+shiftedWTS+" ; commit_ts = "+this.commitTS);
 					if(tsw1.tsw()!=rf.getTS_WORD().tsw())
 						success = false;
 					else
-						rf.setTS_WORD(delta, newWTS);
+						rf.setTS_WORD(delta, shiftedWTS);
 				}
 			} while (!success);
 			tuple.closeCurrentTuple();
@@ -181,7 +188,7 @@ public class Transaction {
 			Tuple tuple = writeSet.get(recInfo);
 			tuple.executeUpdate(this);
 		}
-		bufferMgr.flushAll();
+		bufferMgr.flushAll(txNum);
 	}
 	/**
 	 * Rolls back the current transaction. Undoes any modified values, flushes

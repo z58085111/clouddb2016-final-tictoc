@@ -11,6 +11,7 @@ import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.IntegerConstant;
 import org.vanilladb.core.sql.Record;
 import org.vanilladb.core.sql.Schema;
+import org.vanilladb.core.sql.TSWord;
 import org.vanilladb.core.sql.Type;
 import org.vanilladb.core.storage.buffer.Buffer;
 import org.vanilladb.core.storage.file.BlockId;
@@ -214,7 +215,7 @@ public class RecordPage implements Record {
 			return false;
 		
 		setVal(currentPos(), INUSE_CONST);
-		setVal(currentPos(), TS_WORD_CONST);
+		setVal(currentPos()+FLAG_SIZE, TS_WORD_CONST);
 		return true;
 	}
 
@@ -229,7 +230,7 @@ public class RecordPage implements Record {
 		if (found) {
 			Constant flag = INUSE_CONST;
 			setVal(currentPos(), flag);
-			setVal(currentPos(), TS_WORD_CONST);
+			setVal(currentPos()+FLAG_SIZE, TS_WORD_CONST);
 		}
 		return found;
 	}
@@ -249,7 +250,7 @@ public class RecordPage implements Record {
 		setNextDeletedSlotId(new RecordId(new BlockId("", 0), 0));
 		Constant flag = INUSE_CONST;
 		setVal(currentPos(), flag);
-		setVal(currentPos(), TS_WORD_CONST);
+		setVal(currentPos()+FLAG_SIZE, TS_WORD_CONST);
 		return nds;
 	}
 
@@ -371,83 +372,65 @@ public class RecordPage implements Record {
 	private boolean isTempTable() {
 		return blk.fileName().startsWith("_temp");
 	}
-	
+
 	public void setTS_WORD(long delta, long wts) {
-		long mask = 0x7fff00000000000L;
-		
-		long ts_value = byteToLong() ^ (((delta << 47) & mask) + wts);
-		byte[] ts_byte = ByteHelper.toBytes(ts_value);
-		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		long ts_value = (byteToLong() & TSWord.LOCK_MASK ) |  ((delta << 48) & TSWord.DELTA_MASK) | (wts & TSWord.WTS_MASK) ;
+		Constant constant = new BigIntConstant(ts_value); 
 		setVal(currentPos()+FLAG_SIZE, constant);
 	}
 	
 	public void setTS_WORD(int lock, int rts, long wts) {
-		long mask = 0x7fff00000000000L;
-		
-		long ts_value = lock << 63 + (((rts - wts) << 47) & mask) + wts;
-		byte[] ts_byte = ByteHelper.toBytes(ts_value);
-		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		long ts_value = (lock << 63) | ( (((rts - wts) << 48) & TSWord.DELTA_MASK) | (wts & TSWord.WTS_MASK) );
+		Constant constant = new BigIntConstant(ts_value);
 		setVal(currentPos()+FLAG_SIZE, constant);
 	}
 	
 	public boolean isLocked() {
-		long mask = 0x8000000000000000L;
 		long ts_value = byteToLong();
-		long lock = ts_value & mask;
+		long lock = ts_value & TSWord.LOCK_MASK;
 		return lock != 0;
 	}
 	
 	public boolean getLock() {
-		long mask = 0x8000000000000000L;
 		long ts_value = byteToLong();
 		
-		long test = ts_value & mask;
+		long test = ts_value & TSWord.LOCK_MASK;
 		if(test != 0)
 			return false;
 		
-		long new_ts_value = ts_value | mask;
-		byte[] ts_byte = ByteHelper.toBytes(new_ts_value);
-		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		long new_ts_value = ts_value | TSWord.LOCK_MASK;
+		Constant constant = new BigIntConstant(new_ts_value);
 		setVal(currentPos()+FLAG_SIZE, constant);
 		
 		return true;
 	}
 	
 	public void releaseLock() {
-		long mask = 0x7fffffffffffffffL;
 		long ts_value = byteToLong();
-		long new_ts_value = ts_value & mask;
-		byte[] ts_byte = ByteHelper.toBytes(new_ts_value);
-		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		long new_ts_value = ts_value & ~TSWord.LOCK_MASK;
+		Constant constant = new BigIntConstant(new_ts_value); 
 		setVal(currentPos()+FLAG_SIZE, constant);
 	}
 	
 	public long getRTS() {
-		long maskWTS = 0xffffffffffffL;
-		long mask15 = 0x7fff000000000000L;
 		long ts_value = byteToLong();
-		long wts = ts_value & mask15;
-		return (ts_value & maskWTS + wts);
+		long delta = ts_value & TSWord.DELTA_MASK;
+		return (ts_value & TSWord.WTS_MASK) + (delta >> 48);
 	}
 	
 	public long getWTS() {
-		long mask = 0xffffffffffffL;
 		long ts_value = byteToLong();
-		return (ts_value & mask);
+		return (ts_value & TSWord.WTS_MASK);
 	}
 	
 	public void resetWTS() {
-		long maskWTSZero = 0xffff000000000000L;
 		long ts_value = byteToLong();
-		ts_value = ts_value & maskWTSZero;
-		byte[] ts_byte = ByteHelper.toBytes(ts_value);
-		Constant constant = Constant.newInstance(BIGINT, ts_byte);
+		ts_value = ts_value & ~TSWord.WTS_MASK;
+		Constant constant = new BigIntConstant(ts_value);
 		setVal(currentPos()+FLAG_SIZE, constant);
 	}
 	
 	public long byteToLong() {
-		Constant constant = getVal(currentPos()+FLAG_SIZE, BIGINT);
-		byte[] ts_byte = constant.asBytes();
-		return ByteHelper.toLong(ts_byte);
+		return (Long) getVal(currentPos()+FLAG_SIZE, BIGINT).asJavaVal();
 	}
 }
