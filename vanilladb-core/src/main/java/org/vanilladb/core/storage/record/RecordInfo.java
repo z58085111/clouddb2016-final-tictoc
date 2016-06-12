@@ -3,7 +3,7 @@ package org.vanilladb.core.storage.record;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 
-public class RecordInfo implements Comparable {
+public class RecordInfo implements Comparable<RecordInfo> {
 	private TableInfo tblInfo;
 	private RecordId recId;
 	private RecordFile rf;
@@ -45,7 +45,7 @@ public class RecordInfo implements Comparable {
 	}
 
 	@Override
-	public int compareTo(Object o) {
-		return hashCode() - ((RecordInfo) o).hashCode();
+	public int compareTo(RecordInfo o) {
+		return hashCode() - o.hashCode();
 	}
 }

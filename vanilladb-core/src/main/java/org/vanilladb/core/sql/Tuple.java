@@ -33,7 +33,7 @@ public class Tuple {
 		recInfo.close();
 	}
 	
-	public TSWord getTS_WORD() {
+	public TSWord TSWord() {
 		return tsw;
 	}
 	
