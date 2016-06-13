@@ -1,5 +1,9 @@
 package org.vanilladb.core.query.algebra;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.Schema;
 import org.vanilladb.core.sql.TSWord;
@@ -60,12 +64,8 @@ public class TableScan implements UpdateScan {
 	 */
 	@Override
 	public Constant getVal(String fldName) {
-		Constant val = rf.getVal(fldName);
-		Tuple t = getTxnTuple(TupleType.READ);
-		t.setVal(fldName, val);
-		tx.addTuple(t);
-		
-		return val;
+		Tuple t = addTxnTuple(TupleType.READ);
+		return t.getVal(fldName);
 	}
 
 	@Override
@@ -86,24 +86,21 @@ public class TableScan implements UpdateScan {
 	 */
 	@Override
 	public void setVal(String fldName, Constant val) {
-		Tuple t = getTxnTuple(TupleType.MODIFY);
+		Tuple t = addTxnTuple(TupleType.MODIFY);
 		t.setVal(fldName, val);
-		tx.addTuple(t);
 //		rf.setVal(fldName, val);
 	}
 
 	@Override
 	public void delete() {
-		Tuple t = getTxnTuple(TupleType.DELETE);
-		tx.addTuple(t);
+		addTxnTuple(TupleType.DELETE);
 //		rf.delete();
 	}
 
 	@Override
 	public void insert() {
 		rf.insert();
-		Tuple t = getTxnTuple(TupleType.INSERT);
-		tx.addTuple(t);
+		addTxnTuple(TupleType.INSERT);
 	}
 
 	@Override
@@ -116,13 +113,31 @@ public class TableScan implements UpdateScan {
 		rf.moveToRecordId(rid);
 	}
 	
-	private Tuple getTxnTuple(TupleType type) {
+	private Tuple addTxnTuple(TupleType type) {
 		RecordInfo recInfo = new RecordInfo(ti, getRecordId());
 		Tuple t = tx.getTuple(type, recInfo);
 		if(t == null) {
-			TSWord tsw = rf.getTS_WORD();
-			t = new Tuple(type, recInfo, tsw);
+			t = atomicallyLoadTuple(type, recInfo);
+			tx.addTuple(t);
 		}
 		return t;
+	}
+	
+	private Tuple atomicallyLoadTuple(TupleType type, RecordInfo recInfo) {
+		TSWord v1, v2;
+		Map<String, Constant> recVal;
+		RecordFile rf = recInfo.open(tx, false);
+		do {
+			v1 = rf.getTS_WORD();
+			recVal = new LinkedHashMap<String, Constant>();
+			Set<String> fields = recInfo.tableInfo().schema().fields();
+			for(String fld : fields) {
+				recVal.put(fld, rf.getVal(fld));
+			}
+			v2 = rf.getTS_WORD();
+//			System.out.println("v1: "+v1.tsw()+" v2: "+v2.tsw()+" equal: "+v1.equals(v2)+" lock: "+rf.recIsLocked());
+		} while ( !v1.equals(v2) || rf.recIsLocked() );
+		recInfo.close();
+		return new Tuple(type, recInfo, v1, recVal);
 	}
 }

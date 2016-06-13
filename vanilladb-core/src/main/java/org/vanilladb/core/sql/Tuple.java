@@ -1,6 +1,5 @@
 package org.vanilladb.core.sql;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -14,11 +13,11 @@ public class Tuple {
 	private Map<String, Constant> recVal;
 	private TSWord tsw;
 	
-	public Tuple(TupleType type, RecordInfo recInfo, TSWord tsw) {
+	public Tuple(TupleType type, RecordInfo recInfo, TSWord tsw, Map<String, Constant> recVal) {
 		this.type = type;
 		this.recInfo = recInfo;
 		this.tsw = tsw;
-		this.recVal = new LinkedHashMap<String, Constant>();
+		this.recVal = recVal;
 	}
 	
 	public TupleType type() {

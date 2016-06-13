@@ -183,9 +183,7 @@ public class Transaction {
 	}
 	
 	private void write() {
-		Set<RecordInfo> keys = writeSet.keySet();
-		for(RecordInfo recInfo : keys) {
-			Tuple tuple = writeSet.get(recInfo);
+		for(Tuple tuple : writeSet.values()) {
 			tuple.executeUpdate(this);
 		}
 //		bufferMgr.flushAll(txNum);

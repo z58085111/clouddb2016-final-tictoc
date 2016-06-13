@@ -13,6 +13,14 @@ public class RecordInfo implements Comparable<RecordInfo> {
 		this.recId = recId;
 	}
 	
+	public TableInfo tableInfo() {
+	 	return tblInfo;
+	}
+	
+	public RecordId recordId() {
+		return recId;
+	}
+	
 	public RecordFile open(Transaction tx, boolean doLog) {
 		if(rf==null) {
 			rf = tblInfo.open(tx, doLog);

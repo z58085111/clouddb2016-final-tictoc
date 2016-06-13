@@ -97,7 +97,7 @@ class BufferPoolMgr {
 	 */
 	Buffer pin(BlockId blk) {
 		// Only the txs acquiring the same block will be blocked
-		synchronized (prepareAnchor(blk)) {
+//		synchronized (prepareAnchor(blk)) {
 			// Find existing buffer
 			Buffer buff = findExistingBuffer(blk);
 
@@ -159,7 +159,7 @@ class BufferPoolMgr {
 					buff.getExternalLock().unlock();
 				}
 			}
-		}
+//		}
 	}
 
 	/**

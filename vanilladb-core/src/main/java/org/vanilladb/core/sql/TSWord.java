@@ -25,4 +25,14 @@ public class TSWord {
 	public long delta() {
 		return (tsw & DELTA_MASK) >>> 48;
 	}
+	
+	public boolean equals(Object obj) {
+		if (obj == this)
+			return true;
+		if (obj == null || !(obj.getClass().equals(TSWord.class)))
+			return false;
+		TSWord t = (TSWord) obj;
+		return tsw == t.tsw;
+	}
+	
 }
