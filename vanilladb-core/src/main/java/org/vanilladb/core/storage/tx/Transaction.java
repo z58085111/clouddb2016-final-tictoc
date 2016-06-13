@@ -126,7 +126,7 @@ public class Transaction {
 		for(Tuple tuple : writeSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			rf.recGetLock();
-			tuple.closeCurrentTuple();
+//			tuple.closeCurrentTuple();
 		}
 		
 		// step 2: compute commit_ts
@@ -137,7 +137,7 @@ public class Transaction {
 			long curRTS = tsw.rts() + 1;
 			if(curRTS > this.commitTS)
 				this.commitTS = curRTS;
-			tuple.closeCurrentTuple();
+//			tuple.closeCurrentTuple();
 		}
 		for(Tuple tuple : readSet.values()) {
 			long wts = tuple.TSWord().wts();
