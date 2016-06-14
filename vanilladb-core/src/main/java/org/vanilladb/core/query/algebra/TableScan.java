@@ -122,11 +122,13 @@ public class TableScan implements UpdateScan {
 		}
 		return t;
 	}
-	public static int rollback;
+	public static long time;
+	public static long txnNum;
 	private Tuple atomicallyLoadTuple(TupleType type, RecordInfo recInfo) {
 		TSWord v1, v2;
 		Map<String, Constant> recVal;
-		RecordFile rf = recInfo.open(tx, true);
+//		long s = System.currentTimeMillis();
+//		RecordFile rf = recInfo.open(tx, false);
 		do {
 			v1 = rf.getTS_WORD();
 			recVal = new LinkedHashMap<String, Constant>();
@@ -137,7 +139,9 @@ public class TableScan implements UpdateScan {
 			v2 = rf.getTS_WORD();
 		} while ( !v1.equals(v2) || rf.recIsLocked() );
 		
-		recInfo.close();
+//		recInfo.close();
+//		long e = System.currentTimeMillis();
+//		time += e-s;
 		return new Tuple(type, recInfo, v1, recVal);
 	}
 }

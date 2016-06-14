@@ -12,12 +12,12 @@ public class SerializableConcurrencyMgr extends ConcurrencyMgr {
 
 	@Override
 	public void onTxCommit(Transaction tx) {
-		lockTbl.releaseAll(txNum, false);
+//		lockTbl.releaseAll(txNum, false);
 	}
 
 	@Override
 	public void onTxRollback(Transaction tx) {
-		lockTbl.releaseAll(txNum, false);
+//		lockTbl.releaseAll(txNum, false);
 	}
 
 	@Override

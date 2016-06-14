@@ -1,19 +1,15 @@
 package org.vanilladb.core.storage.tx;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.vanilladb.core.query.algebra.TableScan;
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.TSWord;
 import org.vanilladb.core.sql.Tuple;
@@ -44,7 +40,7 @@ public class Transaction {
 	private Set<RecordInfo> insertRecs;
 	private long commitTS;
 	
-	/**
+	/** 
 	 * Creates a new transaction and associates it with a recovery manager and a
 	 * concurrency manager. This constructor depends on the file, log, and
 	 * buffer managers from {@link VanillaDb}, which are created during system
@@ -95,12 +91,12 @@ public class Transaction {
 	public void addTuple(Tuple t) {
 		if(t.type() == TupleType.READ) {
 			readSet.put(t.recordInfo(), t);
-			if(t.TSWord().wts()>1)
-			System.out.println("wts= "+t.TSWord().wts()+" ; commit_ts = "+this.commitTS);
+//			if(t.TSWord().wts()>1)
+//			System.out.println("wts= "+t.TSWord().wts()+" ; commit_ts = "+this.commitTS);
 		} else {
 			writeSet.put(t.recordInfo(), t);
-			if(t.type() == TupleType.INSERT)
-				insertRecs.add(t.recordInfo());
+//			if(t.type() == TupleType.INSERT)
+//				insertRecs.add(t.recordInfo());
 		}
 	}
 	public long commitTS() {
@@ -114,21 +110,28 @@ public class Transaction {
 	public void commit() {
 		validate();
 		write();
+//		System.out.println("s1: "+s1+"; s2: "+s2+"; s3: "+s3+"; sum: "+(s1+s2+s3) + "; readSet size: "+readSet.size());
 		for (TransactionLifecycleListener l : lifecycleListeners)
 			l.onTxCommit(this);
 
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("transaction " + txNum + " committed");
 	}
-	
+	private static long s1;
+	private static long s2;
+	private static long s3;
 	public void validate() throws InvalidException {
 //		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
+//		long s = System.currentTimeMillis();
 		// step 1: lock write set
 		for(Tuple tuple : writeSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			rf.recGetLock();
 		}
+//		long e = System.currentTimeMillis();
+//		s1 += e-s;
 		
+//		s = System.currentTimeMillis();
 		// step 2: compute commit_ts
 		this.commitTS = 0;
 		for(Tuple tuple : writeSet.values()) {
@@ -143,23 +146,30 @@ public class Transaction {
 			if(wts > this.commitTS)
 				this.commitTS = wts;
 		}
+//		e = System.currentTimeMillis();
+//		s2 += e-s;
 
 		// step 3: validate the read set
+//		long max=0;
 		for(Tuple tuple : readSet.values()) {
+			/**
+			 * BOTTLENECK START
+			 * **/
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			boolean success = true;
 			TSWord tsw1, tsw2;
+			/**
+			 * BOTTLENECK END
+			 * **/
 			TSWord readTSW = tuple.TSWord();
 			do {
 				success = true;
 				tsw1 = tsw2 = rf.getTS_WORD();
 				if( readTSW.wts()!=tsw1.wts() ) {
-					TableScan.rollback++;
 					System.out.println("v1.rts = "+tsw1.rts() + ";locked= " + rf.recIsLocked());
 					throw new InvalidException("abort tx." + txNum + " because tuple is unclean. "+this.commitTS);
 				}
 				if(	tsw1.rts()<=this.commitTS && rf.recIsLocked() && !writeSet.containsKey(tuple.recordInfo()) ) {
-					TableScan.rollback++;
 					System.out.println("v1.rts = "+tsw1.rts() + ";locked= " + rf.recIsLocked());
 					throw new InvalidException("abort tx." + txNum + " because it is modifing by another txn: "+this.commitTS);
 				}
@@ -171,14 +181,25 @@ public class Transaction {
 					long shiftedWTS = tsw2.wts()+shift;
 					delta = delta - shift;
 //					System.out.println("delta= "+delta+" ; shift= "+shift+" ; wts= "+shiftedWTS+" ; commit_ts = "+this.commitTS);
+
+					/**
+					 * BOTTLENECK START
+					 * **/
+//					s = System.currentTimeMillis();
 					if(tsw1.tsw()!=rf.getTS_WORD().tsw())
 						success = false;
 					else
 						rf.setTS_WORD(delta, shiftedWTS);
+//					e = System.currentTimeMillis();
+//					max += e-s;
+					/**
+					 * BOTTLENECK END
+					 * **/
 				}
 			} while (!success);
 			tuple.closeCurrentTuple();
 		}
+//		s3 += max;
 	}
 	
 	private void write() {
