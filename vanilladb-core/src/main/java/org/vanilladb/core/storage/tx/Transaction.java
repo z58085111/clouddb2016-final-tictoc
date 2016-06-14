@@ -186,7 +186,6 @@ public class Transaction {
 		for(Tuple tuple : writeSet.values()) {
 			tuple.executeUpdate(this);
 		}
-//		bufferMgr.flushAll(txNum);
 	}
 	/**
 	 * Rolls back the current transaction. Undoes any modified values, flushes
