@@ -13,6 +13,7 @@ import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.vanilladb.core.query.algebra.TableScan;
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.TSWord;
 import org.vanilladb.core.sql.Tuple;
@@ -126,7 +127,6 @@ public class Transaction {
 		for(Tuple tuple : writeSet.values()) {
 			RecordFile rf = tuple.openCurrentTuple(this, false);
 			rf.recGetLock();
-//			tuple.closeCurrentTuple();
 		}
 		
 		// step 2: compute commit_ts
@@ -137,16 +137,11 @@ public class Transaction {
 			long curRTS = tsw.rts() + 1;
 			if(curRTS > this.commitTS)
 				this.commitTS = curRTS;
-//			tuple.closeCurrentTuple();
 		}
 		for(Tuple tuple : readSet.values()) {
 			long wts = tuple.TSWord().wts();
-//			if(wts>1)
-//				System.out.println("tsw= "+tuple.TSWord().tsw() +"; wts= "+tuple.TSWord().wts()+"; delta="+tuple.TSWord().delta());
-			if(wts > this.commitTS){
+			if(wts > this.commitTS)
 				this.commitTS = wts;
-//				System.out.println("wts= "+wts+" ; commit_ts = "+this.commitTS);
-			}
 		}
 
 		// step 3: validate the read set
@@ -158,9 +153,13 @@ public class Transaction {
 			do {
 				success = true;
 				tsw1 = tsw2 = rf.getTS_WORD();
-				if( readTSW.wts()!=tsw1.wts() ) 
+				if( readTSW.wts()!=tsw1.wts() ) {
+					TableScan.rollback++;
+					System.out.println("v1.rts = "+tsw1.rts() + ";locked= " + rf.recIsLocked());
 					throw new InvalidException("abort tx." + txNum + " because tuple is unclean. "+this.commitTS);
+				}
 				if(	tsw1.rts()<=this.commitTS && rf.recIsLocked() && !writeSet.containsKey(tuple.recordInfo()) ) {
+					TableScan.rollback++;
 					System.out.println("v1.rts = "+tsw1.rts() + ";locked= " + rf.recIsLocked());
 					throw new InvalidException("abort tx." + txNum + " because it is modifing by another txn: "+this.commitTS);
 				}
@@ -193,21 +192,21 @@ public class Transaction {
 	 * all locks, and unpins any pinned blocks.
 	 */
 	public void rollback() {
-		rollbackInsert();
+		for(Tuple tuple : writeSet.values()) {
+			RecordFile rf = tuple.openCurrentTuple(this, true);
+			if(tuple.type()==TupleType.INSERT)
+				rf.delete();
+			else
+				rf.recReleaseLock();
+			tuple.closeCurrentTuple();
+		}
+		
 		for (TransactionLifecycleListener l : lifecycleListeners) {
 			l.onTxRollback(this);
 		}
 
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("transaction " + txNum + " rolled back");
-	}
-	private void rollbackInsert() {
-		for(RecordInfo recInfo : insertRecs) {
-			Tuple tuple = writeSet.get(recInfo);
-			RecordFile rf = tuple.openCurrentTuple(this, true);
-			rf.delete();
-			tuple.closeCurrentTuple();
-		}
 	}
 	/**
 	 * Finishes the current statement. Releases slocks obtained so far for

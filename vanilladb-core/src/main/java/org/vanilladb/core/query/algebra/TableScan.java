@@ -122,11 +122,11 @@ public class TableScan implements UpdateScan {
 		}
 		return t;
 	}
-	
+	public static int rollback;
 	private Tuple atomicallyLoadTuple(TupleType type, RecordInfo recInfo) {
 		TSWord v1, v2;
 		Map<String, Constant> recVal;
-		RecordFile rf = recInfo.open(tx, false);
+		RecordFile rf = recInfo.open(tx, true);
 		do {
 			v1 = rf.getTS_WORD();
 			recVal = new LinkedHashMap<String, Constant>();
@@ -135,8 +135,8 @@ public class TableScan implements UpdateScan {
 				recVal.put(fld, rf.getVal(fld));
 			}
 			v2 = rf.getTS_WORD();
-//			System.out.println("v1: "+v1.tsw()+" v2: "+v2.tsw()+" equal: "+v1.equals(v2)+" lock: "+rf.recIsLocked());
 		} while ( !v1.equals(v2) || rf.recIsLocked() );
+		
 		recInfo.close();
 		return new Tuple(type, recInfo, v1, recVal);
 	}

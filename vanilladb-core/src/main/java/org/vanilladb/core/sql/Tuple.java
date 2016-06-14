@@ -57,8 +57,8 @@ public class Tuple {
 //			rf.insert();
 			for(Entry<String, Constant> entry : recVal.entrySet()) {
 				rf.setVal(entry.getKey(), entry.getValue());
-				rf.setTS_WORD(0, tx.commitTS());
 			}
+			rf.setTS_WORD(0, tx.commitTS());
 			rf.recReleaseLock();
 			closeCurrentTuple();
 			break;
