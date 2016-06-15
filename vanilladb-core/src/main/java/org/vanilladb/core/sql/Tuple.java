@@ -24,8 +24,8 @@ public class Tuple {
 		return type;
 	}
 	
-	public RecordFile openCurrentTuple(Transaction tx, boolean doLog) {
-		return recInfo.open(tx, doLog);
+	public RecordFile openCurrentTuple() {
+		return recInfo.open();
 	}
 	
 	public void closeCurrentTuple() {
@@ -53,20 +53,18 @@ public class Tuple {
 		switch(type) {
 		case MODIFY:
 		case INSERT:
-			rf = openCurrentTuple(tx, true);
+			rf = openCurrentTuple();
 //			rf.insert();
 			for(Entry<String, Constant> entry : recVal.entrySet()) {
 				rf.setVal(entry.getKey(), entry.getValue());
 			}
 			rf.setTS_WORD(0, tx.commitTS());
 			rf.recReleaseLock();
-			closeCurrentTuple();
 			break;
 		case DELETE:
-			rf = openCurrentTuple(tx, true);
+			rf = openCurrentTuple();
 			rf.delete();
 			rf.recReleaseLock();
-			closeCurrentTuple();
 			break;
 		default:
 			break;

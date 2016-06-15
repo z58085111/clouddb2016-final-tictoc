@@ -54,7 +54,7 @@ public class TableScan implements UpdateScan {
 
 	@Override
 	public void close() {
-		rf.close();
+//		rf.close();
 	}
 
 	/**
@@ -114,7 +114,7 @@ public class TableScan implements UpdateScan {
 	}
 	
 	private Tuple addTxnTuple(TupleType type) {
-		RecordInfo recInfo = new RecordInfo(ti, getRecordId());
+		RecordInfo recInfo = new RecordInfo(rf, getRecordId());
 		Tuple t = tx.getTuple(type, recInfo);
 		if(t == null) {
 			t = atomicallyLoadTuple(type, recInfo);
@@ -122,26 +122,20 @@ public class TableScan implements UpdateScan {
 		}
 		return t;
 	}
-	public static long time;
-	public static long txnNum;
+	
 	private Tuple atomicallyLoadTuple(TupleType type, RecordInfo recInfo) {
 		TSWord v1, v2;
 		Map<String, Constant> recVal;
-//		long s = System.currentTimeMillis();
-//		RecordFile rf = recInfo.open(tx, false);
 		do {
 			v1 = rf.getTS_WORD();
 			recVal = new LinkedHashMap<String, Constant>();
-			Set<String> fields = recInfo.tableInfo().schema().fields();
+			Set<String> fields = ti.schema().fields();
 			for(String fld : fields) {
 				recVal.put(fld, rf.getVal(fld));
 			}
 			v2 = rf.getTS_WORD();
 		} while ( !v1.equals(v2) || rf.recIsLocked() );
-		
-//		recInfo.close();
-//		long e = System.currentTimeMillis();
-//		time += e-s;
+	
 		return new Tuple(type, recInfo, v1, recVal);
 	}
 }

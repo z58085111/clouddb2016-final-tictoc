@@ -4,9 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,7 +35,6 @@ public class Transaction {
 
 	private Map<RecordInfo, Tuple> readSet;
 	private Map<RecordInfo, Tuple> writeSet;
-	private Set<RecordInfo> insertRecs;
 	private long commitTS;
 	
 	/** 
@@ -58,7 +55,6 @@ public class Transaction {
 		this.readOnly = readOnly;
 		this.readSet = new LinkedHashMap<RecordInfo, Tuple>();
 		this.writeSet = new TreeMap<RecordInfo, Tuple>();
-		this.insertRecs = new TreeSet<RecordInfo>();
 		this.commitTS = 0;
 
 		lifecycleListeners = new LinkedList<TransactionLifecycleListener>();
@@ -85,18 +81,15 @@ public class Transaction {
 	public void addLifecycleListener(TransactionLifecycleListener listener) {
 		lifecycleListeners.add(listener);
 	}
+	
 	public Tuple getTuple(TupleType type, RecordInfo recInfo) {
 		return (type == TupleType.READ)? readSet.get(recInfo) : writeSet.get(recInfo);
 	}
 	public void addTuple(Tuple t) {
 		if(t.type() == TupleType.READ) {
 			readSet.put(t.recordInfo(), t);
-//			if(t.TSWord().wts()>1)
-//			System.out.println("wts= "+t.TSWord().wts()+" ; commit_ts = "+this.commitTS);
 		} else {
 			writeSet.put(t.recordInfo(), t);
-//			if(t.type() == TupleType.INSERT)
-//				insertRecs.add(t.recordInfo());
 		}
 	}
 	public long commitTS() {
@@ -110,32 +103,24 @@ public class Transaction {
 	public void commit() {
 		validate();
 		write();
-//		System.out.println("s1: "+s1+"; s2: "+s2+"; s3: "+s3+"; sum: "+(s1+s2+s3) + "; readSet size: "+readSet.size());
 		for (TransactionLifecycleListener l : lifecycleListeners)
 			l.onTxCommit(this);
 
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("transaction " + txNum + " committed");
 	}
-	private static long s1;
-	private static long s2;
-	private static long s3;
+	
 	public void validate() throws InvalidException {
-//		System.out.println("read size: "+readSet.size() + "\nwrite size: "+writeSet.size()+"\ninsert: "+insertRecs.size());
-//		long s = System.currentTimeMillis();
 		// step 1: lock write set
 		for(Tuple tuple : writeSet.values()) {
-			RecordFile rf = tuple.openCurrentTuple(this, false);
+			RecordFile rf = tuple.openCurrentTuple();
 			rf.recGetLock();
 		}
-//		long e = System.currentTimeMillis();
-//		s1 += e-s;
-		
-//		s = System.currentTimeMillis();
+
 		// step 2: compute commit_ts
 		this.commitTS = 0;
 		for(Tuple tuple : writeSet.values()) {
-			RecordFile rf = tuple.openCurrentTuple(this, false);
+			RecordFile rf = tuple.openCurrentTuple();
 			TSWord tsw = rf.getTS_WORD();
 			long curRTS = tsw.rts() + 1;
 			if(curRTS > this.commitTS)
@@ -146,21 +131,15 @@ public class Transaction {
 			if(wts > this.commitTS)
 				this.commitTS = wts;
 		}
-//		e = System.currentTimeMillis();
-//		s2 += e-s;
+
 
 		// step 3: validate the read set
-//		long max=0;
 		for(Tuple tuple : readSet.values()) {
-			/**
-			 * BOTTLENECK START
-			 * **/
-			RecordFile rf = tuple.openCurrentTuple(this, false);
+
+			RecordFile rf = tuple.openCurrentTuple();
 			boolean success = true;
 			TSWord tsw1, tsw2;
-			/**
-			 * BOTTLENECK END
-			 * **/
+
 			TSWord readTSW = tuple.TSWord();
 			do {
 				success = true;
@@ -180,31 +159,23 @@ public class Transaction {
 					long shift = (overflow > 0)? (delta - overflow) : 0 ;
 					long shiftedWTS = tsw2.wts()+shift;
 					delta = delta - shift;
-//					System.out.println("delta= "+delta+" ; shift= "+shift+" ; wts= "+shiftedWTS+" ; commit_ts = "+this.commitTS);
 
-					/**
-					 * BOTTLENECK START
-					 * **/
-//					s = System.currentTimeMillis();
 					if(tsw1.tsw()!=rf.getTS_WORD().tsw())
 						success = false;
 					else
 						rf.setTS_WORD(delta, shiftedWTS);
-//					e = System.currentTimeMillis();
-//					max += e-s;
-					/**
-					 * BOTTLENECK END
-					 * **/
+
 				}
 			} while (!success);
-			tuple.closeCurrentTuple();
 		}
-//		s3 += max;
 	}
 	
 	private void write() {
 		for(Tuple tuple : writeSet.values()) {
 			tuple.executeUpdate(this);
+		}
+		for(Tuple tuple : writeSet.values()) {
+			tuple.closeCurrentTuple();
 		}
 	}
 	/**
@@ -214,11 +185,13 @@ public class Transaction {
 	 */
 	public void rollback() {
 		for(Tuple tuple : writeSet.values()) {
-			RecordFile rf = tuple.openCurrentTuple(this, true);
+			RecordFile rf = tuple.openCurrentTuple();
 			if(tuple.type()==TupleType.INSERT)
 				rf.delete();
 			else
 				rf.recReleaseLock();
+		}
+		for(Tuple tuple : writeSet.values()) {
 			tuple.closeCurrentTuple();
 		}
 		
