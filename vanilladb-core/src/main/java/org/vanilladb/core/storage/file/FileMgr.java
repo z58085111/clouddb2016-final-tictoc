@@ -2,9 +2,17 @@ package org.vanilladb.core.storage.file;
 
 import static org.vanilladb.core.storage.file.Page.BLOCK_SIZE;
 import static org.vanilladb.core.storage.log.LogMgr.LOG_FILE;
+import static org.vanilladb.core.storage.log.LogMgr.TIME_FILE;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -32,11 +40,11 @@ import org.vanilladb.core.util.CoreProperties;
 public class FileMgr {
 	private static Logger logger = Logger.getLogger(FileMgr.class.getName());
 
-	public static final String DB_FILES_DIR, LOG_FILES_DIR;
+	public static final String DB_FILES_DIR, LOG_FILES_DIR, TIME_FILES_DIR;
 	// XXX: This should be deal with by an upper layer
 	public static final String TMP_FILE_NAME_PREFIX = "_temp";
 
-	private File dbDirectory, logDirectory;
+	private File dbDirectory, logDirectory, timeDirectory;
 	private boolean isNew;
 	private Map<String, IoChannel> openFiles = new ConcurrentHashMap<String, IoChannel>();
 
@@ -45,6 +53,8 @@ public class FileMgr {
 				System.getProperty("user.home"));
 		String logDir = CoreProperties.getLoader().getPropertyAsString(FileMgr.class.getName() + ".LOG_FILES_DIR",
 				dbDir);
+		String timeDir = CoreProperties.getLoader().getPropertyAsString(FileMgr.class.getName() + ".TIME_FILES_DIR",
+				dbDir); 
 		String defaultDir = System.getProperty("user.home");
 
 		// Check if these two directories exist
@@ -60,9 +70,17 @@ public class FileMgr {
 						+ "' doesn't exist, use the same directory as database files: " + dbDir);
 			logDir = dbDir;
 		}
+		if (!new File(timeDir).exists()) {
+			if (logger.isLoggable(Level.WARNING))
+				logger.warning("the log files directory '" + timeDir
+						+ "' doesn't exist, use the same directory as database files: " + dbDir);
+			timeDir = dbDir;
+		}		
+		
 
 		DB_FILES_DIR = dbDir;
 		LOG_FILES_DIR = logDir;
+		TIME_FILES_DIR = timeDir;
 	}
 
 	private final Object[] anchors = new Object[1009];
@@ -89,6 +107,7 @@ public class FileMgr {
 
 		// log files can be stored in a different directory
 		logDirectory = new File(LOG_FILES_DIR, dbName);
+		timeDirectory = new File(TIME_FILES_DIR, dbName);
 		isNew = !dbDirectory.exists();
 
 		// deal with the log folder in a new database
@@ -103,10 +122,25 @@ public class FileMgr {
 		// check the existence of log folder
 		if (!isNew && !logDirectory.exists())
 			throw new RuntimeException("log file for the existed " + dbName + " is missing");
+		
+		// deal with the time folder in a new database
+		if (isNew && !dbDirectory.equals(timeDirectory)) {
+			// delete the old time file if db is new
+			if (timeDirectory.exists()) {
+				deleteTimeFiles();
+
+			} else if (!timeDirectory.mkdir())
+				throw new RuntimeException("cannot create time file for" + dbName);
+		}
+
+		// check the existence of time folder
+		if (!isNew && !timeDirectory.exists())
+			throw new RuntimeException("time file for the existed " + dbName + " is missing");
 
 		// create the directory if the database is new
 		if (isNew && (!dbDirectory.mkdir()))
 			throw new RuntimeException("cannot create " + dbName);
+
 
 		// remove any leftover temporary tables
 		for (String filename : dbDirectory.list())
@@ -243,6 +277,35 @@ public class FileMgr {
 			throw new RuntimeException("rebuild log file fail");
 		}
 	}
+	
+	public void rebuildTimeFile(long accumulatedTime, String tablename) {
+		File timeFile = new File(timeDirectory+"/"+tablename+".time");
+		try {
+			BufferedWriter bufWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(timeFile, false), "UTF-8"));
+			bufWriter.write(String.valueOf(accumulatedTime));
+			bufWriter.close();
+		} catch (IOException e) {
+			System.out.println("time file writing error");
+			System.out.println(e);
+		}
+	}
+	
+	public long readTimeFile(String tablename) throws IOException {
+		File timeFile = new File(timeDirectory+"/"+tablename+".time");
+		if(!timeFile.exists()) 
+		    return 0;
+		else
+			System.out.println("file exist");
+		FileInputStream fis = new FileInputStream(timeFile);
+		BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+		String line = null;
+		while((line = br.readLine()) != null) {
+			break;
+		}
+		br.close();
+		//System.out.println(timeDirectory+"/"+tablename+".time     " + line);
+		return Long.parseLong(line);
+	}
 
 	/**
 	 * Returns the file channel for the specified filename. The file channel is
@@ -294,6 +357,29 @@ public class FileMgr {
 		} catch (IOException e) {
 			if (logger.isLoggable(Level.WARNING))
 				logger.warning("there is something wrong when deleting log files");
+			e.printStackTrace();
+		}
+	}
+	
+	public void deleteTimeFiles() {
+		try {
+			for (String fileName : timeDirectory.list())
+				if (fileName.endsWith(".time")) {
+					synchronized (prepareAnchor(fileName)) {
+						// Close file, if it opened
+						IoChannel fileChannel = openFiles.remove(fileName);
+						if (fileChannel != null)
+							fileChannel.close();
+
+						// Actually delete file
+						boolean hasDeleted = new File(timeDirectory, fileName).delete();
+						if (!hasDeleted && logger.isLoggable(Level.WARNING))
+							logger.warning("cannot deleted old time file");
+					}
+				}
+		} catch (IOException e) {
+			if (logger.isLoggable(Level.WARNING))
+				logger.warning("there is something wrong when deleting time files");
 			e.printStackTrace();
 		}
 	}

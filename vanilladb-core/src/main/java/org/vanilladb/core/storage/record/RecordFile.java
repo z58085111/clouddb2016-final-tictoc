@@ -428,4 +428,8 @@ public class RecordFile implements Record {
 	public void recReleaseLock() {
 		rp.releaseLock();
 	}
+	
+	public void recResetWTS() {
+		rp.resetWTS();
+	}
 }

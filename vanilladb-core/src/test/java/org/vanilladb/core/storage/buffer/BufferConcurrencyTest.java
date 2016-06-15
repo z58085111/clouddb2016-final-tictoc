@@ -1,5 +1,6 @@
 package org.vanilladb.core.storage.buffer;
 
+import java.io.IOException;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
@@ -15,7 +16,7 @@ public class BufferConcurrencyTest {
 	private static final int CLIENT_COUNT = 100;
 
 	@BeforeClass
-	public static void init() {
+	public static void init() throws IOException {
 		ServerInit.init();
 	}
 

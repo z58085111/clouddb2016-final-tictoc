@@ -4,6 +4,7 @@ import static org.vanilladb.core.sql.Type.INTEGER;
 import static org.vanilladb.core.sql.Type.VARCHAR;
 
 import java.io.File;
+import java.io.IOException;
 import java.sql.Connection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -44,8 +45,9 @@ public class ServerInit {
 	 * constructors, etc) of all VanillaDb classes should be accessed after
 	 * calling this method to ensure the proper class loading.
 	 * </p>
+	 * @throws IOException 
 	 */
-	public static void init() {
+	public static void init() throws IOException {
 		if (logger.isLoggable(Level.INFO))
 			logger.info("BEGIN INITIALIZATION");
 

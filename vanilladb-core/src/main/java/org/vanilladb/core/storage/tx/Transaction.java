@@ -231,4 +231,8 @@ public class Transaction {
 	public BufferMgr bufferMgr() {
 		return bufferMgr;
 	}
+	
+	public void resetAllWTS(String tablename) {
+		VanillaDb.catalogMgr().getTableMgr().resetWTS(this, tablename);
+	}
 }

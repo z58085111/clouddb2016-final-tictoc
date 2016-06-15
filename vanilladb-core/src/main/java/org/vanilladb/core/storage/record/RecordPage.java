@@ -215,7 +215,7 @@ public class RecordPage implements Record {
 			return false;
 		
 		setVal(currentPos(), INUSE_CONST);
-		setVal(currentPos()+FLAG_SIZE, TS_WORD_CONST);
+		setVal(currentPos() + FLAG_SIZE, TS_WORD_CONST);
 		return true;
 	}
 

@@ -1,5 +1,6 @@
 package org.vanilladb.core.storage.buffer;
 
+import java.io.IOException;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
@@ -20,7 +21,7 @@ public class BufferPoolConcurrencyTest {
 	private static final String TEST_FILE_NAME = "_tempbufferpooltest";
 
 	@BeforeClass
-	public static void init() {
+	public static void init() throws IOException {
 		ServerInit.init();
 	}
 

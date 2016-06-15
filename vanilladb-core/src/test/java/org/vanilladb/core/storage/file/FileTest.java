@@ -7,6 +7,7 @@ import static org.vanilladb.core.sql.Type.INTEGER;
 import static org.vanilladb.core.sql.Type.VARCHAR;
 import static org.vanilladb.core.storage.file.Page.BLOCK_SIZE;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -38,7 +39,7 @@ public class FileTest {
 	private static Page p3;
 
 	@BeforeClass
-	public static void init() {
+	public static void init() throws IOException {
 		ServerInit.init();
 
 		fm = VanillaDb.fileMgr();

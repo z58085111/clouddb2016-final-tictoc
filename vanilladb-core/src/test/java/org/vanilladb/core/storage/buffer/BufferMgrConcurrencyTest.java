@@ -2,6 +2,7 @@ package org.vanilladb.core.storage.buffer;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.IOException;
 import java.sql.Connection;
 
 import org.junit.Before;
@@ -23,7 +24,7 @@ public class BufferMgrConcurrencyTest {
 	private static String result = "";
 	
 	@BeforeClass
-	public static void init() {
+	public static void init() throws IOException {
 		ServerInit.init();
 	}
 	

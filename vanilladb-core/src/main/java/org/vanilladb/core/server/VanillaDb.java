@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.Connection;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,6 +25,7 @@ import org.vanilladb.core.storage.tx.Transaction;
 import org.vanilladb.core.storage.tx.TransactionMgr;
 import org.vanilladb.core.storage.tx.recovery.CheckpointTask;
 import org.vanilladb.core.storage.tx.recovery.RecoveryMgr;
+import org.vanilladb.core.storage.tx.recovery.ResetWTS;
 import org.vanilladb.core.util.CoreProperties;
 import org.vanilladb.core.util.Profiler;
 
@@ -71,8 +73,9 @@ public class VanillaDb {
 	 * 
 	 * @param dirName
 	 *            the name of the database directory
+	 * @throws IOException 
 	 */
-	public static void init(String dirName) {
+	public static void init(String dirName) throws IOException {
 		init(dirName, BufferMgrType.DefaultBufferMgr);
 	}
 
@@ -83,8 +86,9 @@ public class VanillaDb {
 	 *            the name of the database directory
 	 * @param bufferType
 	 *            the type of the buffer manager for storage engine
+	 * @throws IOException 
 	 */
-	public static void init(String dirName, BufferMgrType bufferType) {
+	public static void init(String dirName, BufferMgrType bufferType) throws IOException {
 
 		if (inited) {
 			if (logger.isLoggable(Level.WARNING))
@@ -145,6 +149,18 @@ public class VanillaDb {
 				VanillaDb.class.getName() + ".DO_CHECKPOINT", true);
 		if (doCheckpointing)
 			initCheckpointingTask();
+		
+		try {
+			Set<String> tablenames = catalogMgr.getTableMgr().getTableName();
+			for(String tablename : tablenames) {
+				if(!tablename.equals("viewcat"))
+					initResetWTSTask(tablename);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	
 
 		// finish initialization
 		inited = true;
@@ -213,6 +229,7 @@ public class VanillaDb {
 	 *            an indication of whether a new database needs to be created.
 	 * @param tx
 	 *            the transaction performing the initialization
+	 * @throws IOException 
 	 */
 	public static void initCatalogMgr(boolean isNew, Transaction tx) {
 		catalogMgr = new CatalogMgr(isNew, tx);
@@ -251,6 +268,10 @@ public class VanillaDb {
 	 */
 	public static void initCheckpointingTask() {
 		taskMgr.runTask(new CheckpointTask());
+	}
+	
+	public static void initResetWTSTask(String tablename) throws IOException {
+		taskMgr.runTask(new ResetWTS(ResetWTS.readTimeFile(tablename), tablename));
 	}
 
 	public static FileMgr fileMgr() {

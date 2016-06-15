@@ -6,6 +6,7 @@ import static org.vanilladb.core.sql.Type.INTEGER;
 import static org.vanilladb.core.sql.Type.VARCHAR;
 import static org.vanilladb.core.storage.index.Index.IDX_BTREE;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.util.LinkedList;
 import java.util.Map;
@@ -45,7 +46,7 @@ public class RecoveryBasicTest {
 	private static BlockId blk;
 
 	@BeforeClass
-	public static void init() {
+	public static void init() throws IOException {
 		ServerInit.deleteDB();
 		ServerInit.init();
 		
