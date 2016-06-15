@@ -188,8 +188,7 @@ public class Transaction {
 			RecordFile rf = tuple.openCurrentTuple();
 			if(tuple.type()==TupleType.INSERT)
 				rf.delete();
-			else
-				rf.recReleaseLock();
+			rf.recReleaseLock();
 		}
 		for(Tuple tuple : writeSet.values()) {
 			tuple.closeCurrentTuple();
