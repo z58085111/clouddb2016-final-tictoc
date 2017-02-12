@@ -15,12 +15,10 @@ Team 9: 104062510 謝承翰、104062506黃郁翔
 傳統OCC將Transaction執行分為三個階段:Read Phase, Validation Phase, Write Phase,TicToc也分此三個階段進行,但針對執行的過程進行改良。TicToc中每 個record還會帶有lock bit, WTS, RTS    
 1. Read Phase
 將Transaction將需要用到的Record複製一份到自己的read/write set,讀取時會
-確認lock bit,若鎖住則等待重讀。 
-
+確認lock bit,若鎖住則等待重讀。
 2. Validation Phase
 Transaction commit前,必須驗證自己workspace內讀取或修改的資料是否有效 ,在TicToc中,判斷Transaction是否有效的依據是,每個Transaction的 commit timestamp必須滿足下列不等式:
 ![inequality](image/inequality.png)
-
 3. Write Phase
 若通過Validate,則將資料寫回DB,另 RTS = WTS = Commit Timestamp,使 其將Transaction也可以看到自己commit的結果。
 
