@@ -6,10 +6,13 @@ Team 9: 104062510 謝承翰、104062506黃郁翔
 - Conference: SIGMOD 2015
 - Authors: Xiangyao Yu, Andrew Pavlo, Daniel Sanchez, Srinivas Devadas
 - TicToc Protocol:
-	基於Optimistic Concurrency Control (OCC)改良,傳統OCC中,每個 Transaction執行時會先由系統指定該Transaction的Timestamp,當 Transaction數量一多,系統指定Timestamp會形成Bottleneck。而TicToc的方 式則是由Transaction自行計算Timestamp,每筆record都會帶著TS_WORD, 是由Lock bit, Read Timestamp(RTS), Write Timestamp(WTS)組合而成,透過TS_WORD,Transaction可以在 commit的時候算出自己的commit timestamp,並驗證是否合法,若合法則 commit,寫入DB使改變也讓其他Transaction看到修改。這樣的方式解決的系 統中央指定Timestamp的Bottleneck,繼而達到增進效率的效果。以下我們將 介紹TicToc如何運作以及實作。
+	1. 基於Optimistic Concurrency Control (OCC)改良:
+    傳統OCC中,每個Transaction執行時會先由系統指定該Transaction的Timestamp,當Transaction數量一多, 系統指定Timestamp會形成Bottleneck。而TicToc的方式則是由Transaction自行計算Timestamp。
+    2. 分散式計算Timestamp: 
+    每筆record都會帶著TS_WORD, 是由Lock bit, Read Timestamp(RTS), Write Timestamp(WTS)組合而成,透過TS_WORD, Transaction可以在 commit的時候算出自己的commit timestamp,並驗證是否合法。這樣的方式解決的系統中央指定Timestamp的Bottleneck, 繼而達到增進效率的效果。以下我們將介紹TicToc如何運作以及實作。
 
 ## 2. TicToc運作流程
-傳統OCC將Transaction執行分為三個階段:Read Phase, Validation Phase, Write Phase,TicToc也分此三個階段進行,但針對執行的過程進行改良。TicToc中每 個record還會帶有lock bit, WTS, RTS
+傳統OCC將Transaction執行分為三個階段:Read Phase, Validation Phase, Write Phase,TicToc也分此三個階段進行,但針對執行的過程進行改良。TicToc中每 個record還會帶有lock bit, WTS, RTS    
 1. Read Phase
 將Transaction將需要用到的Record複製一份到自己的read/write set,讀取時會
 確認lock bit,若鎖住則等待重讀。 
