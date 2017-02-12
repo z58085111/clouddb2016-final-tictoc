@@ -28,7 +28,7 @@ Implementation主要分為Timestamp, Tuple & Workspace, Three phases, Reset WTS
 首先要先改變record格式, 讓record塞得進paper提到的TS_WORD:
 ![TS_WORD](image/tsword.png)
 
-    具體的方式是我們在RecordPage的地方宣告TS_WORD的值,並且參照每個record都會多出的FLAG,我們也用相同的方法加入TS_WORD, 所以pos的位置會跟著改變, 有需要改動的地方包含計算其位置的method,都要補上TS_WORD_SIZE。
+具體的方式是我們在RecordPage的地方宣告TS_WORD的值, 並且參照每個record都會多出的FLAG, 我們也用相同的方法加入TS_WORD, 所以pos的位置會跟著改變, 有需要改動的地方包含計算offset的method,都要補上TS_WORD_SIZE。
 在RecordPage有另一件事情是,所有操作TS_WORD的method都在這裡被定義,包含:
 setTS_WORD, isLocked, getLock, releaseLock, getRTS, getWTS和resetWTS這些method。
 實作方式是類似的,就是將64bit的TS_WORD做拆解,並且用正確的mask來過濾出想要的值,無論是做回傳或設定。
@@ -83,12 +83,12 @@ setVal) 都改為對Transaction的Read/Write Set進行修改,根據操作的性�
 綠色是我們改的TicToc版本,藍色則是原始2PL版本。從上圖可以看出,在Contention-free的 情況下,TicToc版本會勝出,這是因為TicToc不用先拿lock,可以直接執行,而且在 Contention-free的情況下validate不會發生abort,因此表現優於2PL。隨著Writing rate越來越高,競爭的狀況也隨著升高,這時候在validate發生abort,會拉低TicToc的Throughput,雖然2PL也會因此發生競爭,但因為有事先拿lock,當發生競爭時比較不容易發生abort的情況,所以最後圖的走勢兩者開始交叉。
 
 ## 5. Discussion
-(A)為什麼需要Timestamp? 不直接比對資料是否相同來判斷有沒有被改過?   
-    Optimistic concurrency control本身就必須要具備timestamp作為判斷的依據。 適合於data confliction低的環境裡面,可以獲得較高的吞吐量。因此如果是Naive的方法不給予timestamp也是可以的,但是就與Optimistic Concurrency Control本身的概念相違背。孰優孰劣可能得依據Transaction的特性而定。也有可能Timestamp可以用來避免Starvation,如果單純比對資料是否相同的話,沒辦法知道哪個Trasaction可能等了很久了。   
+1. 為什麼需要Timestamp? 不直接比對資料是否相同來判斷有沒有被改過?    
+Optimistic concurrency control本身就必須要具備timestamp作為判斷的依據。 適合於data confliction低的環境裡面,可以獲得較高的吞吐量。因此如果是Naive的方法不給予timestamp也是可以的,但是就與Optimistic Concurrency Control本身的概念相違背。孰優孰劣可能得依據Transaction的特性而定。也有可能Timestamp可以用來避免Starvation,如果單純比對資料是否相同的話,沒辦法知道哪個Trasaction可能等了很久了。
 
-(B)可以改進的地方
-1. 實驗因為時間的關係並沒有做的很完整,數據的可信度不夠,之後應要跑跑看
+2. 可以改進的地方   
+    1. 實驗因為時間的關係並沒有做的很完整,數據的可信度不夠,之後應要跑跑看
 loading更重的測試,以凸顯TicToc分散式的優點
-2. 可以加上與傳統OCC的比較,才能說明TicToc分散式決定timestamp與傳統集
+    2. 可以加上與傳統OCC的比較,才能說明TicToc分散式決定timestamp與傳統集
 中式指定timestamp的差異之處
-3. 之後可以試著做出在multicore上實現平行化
+    3. 之後可以試著做出在multicore上實現平行化
